@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+
+# Fertige EXE: kommt als GitHub-Release, nicht ins Repo
+Release/
+
+# Persönliche Daten liegen in %AppData%\ViennaAtomicClock und nie hier; zur Sicherheit trotzdem ausschließen
+settings.json
+timetable.json
+todos.json
+notes.json
+caffeine-log.json
+Chats/

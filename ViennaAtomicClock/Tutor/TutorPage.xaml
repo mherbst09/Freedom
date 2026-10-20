@@ -1,0 +1,327 @@
+<UserControl x:Class="ViennaAtomicClock.Tutor.TutorPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ViennaAtomicClock.Tutor">
+    <UserControl.Resources>
+        <!-- Calm dark palette for the tutor in every theme (overrides the app colours inside this page). -->
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#F2151821"/>
+        <SolidColorBrush x:Key="SurfaceAlt" Color="#1E2230"/>
+        <SolidColorBrush x:Key="PopupBrush" Color="#1A1E2A"/>
+        <SolidColorBrush x:Key="CardBorder" Color="#2A3042"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#E6E8EE"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#A3A9B8"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#6E7586"/>
+        <SolidColorBrush x:Key="HoverBrush" Color="#262B3B"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#8C9BFF"/>
+        <SolidColorBrush x:Key="AccentForeground" Color="#0E1020"/>
+        <SolidColorBrush x:Key="AccentSoft" Color="#2A3160"/>
+        <SolidColorBrush x:Key="GreenBrush" Color="#6FD3A0"/>
+        <SolidColorBrush x:Key="OrangeBrush" Color="#FFB86B"/>
+        <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+        <local:BoolToVisibility x:Key="Visible"/>
+        <local:BoolToVisibility x:Key="Hidden" Invert="True"/>
+
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{DynamicResource UiFont}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+        </Style>
+
+        <Style x:Key="PlainBox" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="FontFamily" Value="{DynamicResource UiFont}"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid x:Name="Root">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="270"/>
+            <ColumnDefinition x:Name="GapColumn" Width="14"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar: new chat, search, chat list, status, settings -->
+        <Border x:Name="Sidebar" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="14" Panel.ZIndex="5">
+            <DockPanel>
+                <Button DockPanel.Dock="Top" Style="{StaticResource ActionButton}" Height="42" Content="＋  Neuer Chat" Command="{Binding NewChatCommand}"/>
+                <Grid DockPanel.Dock="Top" Margin="0,12,0,10">
+                    <TextBox x:Name="SearchBox" Style="{StaticResource InputTextBox}" Height="36" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"/>
+                    <TextBlock Text="⌕  Chats durchsuchen" Foreground="{DynamicResource TextMuted}" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                               Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Hidden}}"/>
+                </Grid>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                    <Border Background="{DynamicResource SurfaceAlt}" CornerRadius="{DynamicResource CardRadius}" Padding="10,8" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Margin="0,0,8,0" Fill="{DynamicResource GreenBrush}" Visibility="{Binding IsConnected, Converter={StaticResource Visible}}"/>
+                            <Ellipse Width="8" Height="8" Margin="0,0,8,0" Fill="{DynamicResource OrangeBrush}" Visibility="{Binding IsConnected, Converter={StaticResource Hidden}}"/>
+                            <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Style="{StaticResource SecondaryButton}" Height="38" Content="⚙  Einstellungen" Command="{Binding OpenSettingsCommand}"/>
+                </StackPanel>
+
+                <ListBox ItemsSource="{Binding ChatList}" SelectedItem="{Binding Selected}" Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Margin" Value="0,0,0,3"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bg" Background="Transparent" CornerRadius="{DynamicResource CardRadius}" Padding="10,8">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bg" Property="Background" Value="{DynamicResource HoverBrush}"/></Trigger>
+                                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="Bg" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Title}" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="1" Text="{Binding UpdatedLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="8,1,0,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- Chat area -->
+        <Border Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}">
+            <Grid DataContext="{Binding Selected}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header: title (editable), model, export, delete -->
+                <Border BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,0,0,1" Padding="16,10,12,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="SidebarToggle" Style="{StaticResource IconButton}" Content="☰" Margin="0,0,6,0" Visibility="Collapsed" Click="SidebarToggle_Click" ToolTip="Chats anzeigen"/>
+                        <TextBox Grid.Column="1" Style="{StaticResource PlainBox}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
+                                 Text="{Binding Title, UpdateSourceTrigger=LostFocus}" ToolTip="Klicken zum Umbenennen" KeyDown="TitleBox_KeyDown"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Button x:Name="ModelButton" Style="{StaticResource ChipButton}" Height="32" Click="ModelButton_Click" ToolTip="Lokales Modell wählen"
+                                    DataContext="{Binding DataContext, ElementName=Root}">
+                                <TextBlock Foreground="{DynamicResource TextSecondary}"><Run Text="◆ "/><Run Text="{Binding ModelName, Mode=OneWay}"/><Run Text=" ▾"/></TextBlock>
+                            </Button>
+                            <Popup x:Name="ModelPopup" PlacementTarget="{Binding ElementName=ModelButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" VerticalOffset="6"
+                                   DataContext="{Binding DataContext, ElementName=Root}">
+                                <Border Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="8" MinWidth="240">
+                                    <StackPanel>
+                                        <TextBlock Text="INSTALLIERTE MODELLE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,6"/>
+                                        <ItemsControl ItemsSource="{Binding Models}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,4" HorizontalContentAlignment="Stretch" Padding="10,0"
+                                                            Command="{Binding DataContext.PickModelCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}" Click="ModelItem_Click">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Label}" FontSize="12.5"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding SizeLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="10,0,0,0"/>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="Keine Modelle gefunden. Ist Ollama gestartet?" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="6,4"
+                                                   Visibility="{Binding Models.Count, Converter={StaticResource Hidden}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                            <Button Style="{StaticResource IconButton}" Content="⇩" ToolTip="Chat als Markdown exportieren" Command="{Binding DataContext.ExportChatCommand, ElementName=Root}"/>
+                            <Button Style="{StaticResource IconButton}" Content="🗑" FontSize="14" ToolTip="Chat löschen" Command="{Binding DataContext.DeleteChatCommand, ElementName=Root}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Messages -->
+                <ScrollViewer x:Name="MessageScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" ScrollChanged="MessageScroller_ScrollChanged" Focusable="False">
+                    <ItemsControl ItemsSource="{Binding Messages}" Margin="24,18,24,8" MaxWidth="900">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,18">
+                                    <!-- User: right-aligned bubble -->
+                                    <Border HorizontalAlignment="Right" MaxWidth="640" Background="{DynamicResource SurfaceAlt}" CornerRadius="{DynamicResource CardRadius}" Padding="14,10"
+                                            Visibility="{Binding IsUser, Converter={StaticResource Visible}}">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap" FontSize="14.5" LineHeight="21"/>
+                                            <TextBlock Text="{Binding AttachmentLabel}" FontSize="12" Foreground="{DynamicResource AccentBrush}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                       Visibility="{Binding HasAttachments, Converter={StaticResource Visible}}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <!-- Tutor: full width with Markdown -->
+                                    <StackPanel Visibility="{Binding IsUser, Converter={StaticResource Hidden}}">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                            <Border Width="24" Height="24" CornerRadius="12" Background="{DynamicResource AccentSoft}">
+                                                <TextBlock Text="◆" FontSize="12" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock Text="Eagle 1.1" FontWeight="SemiBold" FontSize="13" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding TimeLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="8,1,0,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="  ● schreibt …" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
+                                                       Visibility="{Binding IsStreaming, Converter={StaticResource Visible}}"/>
+                                        </StackPanel>
+                                        <local:MarkdownView Markdown="{Binding Content}" Margin="32,0,0,0"/>
+                                        <StackPanel Orientation="Horizontal" Margin="28,0,0,0" Visibility="{Binding IsStreaming, Converter={StaticResource Hidden}}">
+                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="⧉ Kopieren"
+                                                    Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="⇩ Als Markdown"
+                                                    Command="{Binding DataContext.ExportMessageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- Welcome with example questions for a new chat -->
+                <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="620" Margin="24"
+                            Visibility="{Binding IsEmpty, Converter={StaticResource Visible}}">
+                    <TextBlock Text="◆" FontSize="34" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Hi, ich bin Eagle 1.1. Was möchtest du heute lernen?" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,4"/>
+                    <TextBlock Text="C#, OOP, Unity, UML, Patterns, Datenbanken, Netzwerke – lokal auf deinem PC, ohne Cloud." FontSize="13"
+                               Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                    <WrapPanel x:Name="Suggestions" HorizontalAlignment="Center" Margin="0,18,0,0"/>
+                </StackPanel>
+
+                <!-- Ollama problems: clear help instead of a dead end -->
+                <Border Grid.Row="1" VerticalAlignment="Bottom" Margin="24,0,24,12" Padding="16,12" Background="#332A1E10" BorderBrush="{DynamicResource OrangeBrush}" BorderThickness="1"
+                        CornerRadius="{DynamicResource CardRadius}" DataContext="{Binding DataContext, ElementName=Root}"
+                        Visibility="{Binding ConnectionHelp, Converter={StaticResource Visible}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding ConnectionHelp}" TextWrapping="Wrap" FontSize="13" LineHeight="19"/>
+                        <Button Grid.Column="1" Style="{StaticResource ChipButton}" Height="32" VerticalAlignment="Top" Margin="12,0,0,0" Content="↻ Erneut prüfen" Command="{Binding CheckConnectionCommand}"/>
+                    </Grid>
+                </Border>
+
+                <!-- Input -->
+                <Border Grid.Row="2" Padding="16,0,16,14">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DataContext.Status, ElementName=Root}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="4,0,0,6"
+                                   Visibility="{Binding DataContext.Status, ElementName=Root, Converter={StaticResource Visible}}"/>
+                        <ItemsControl ItemsSource="{Binding PendingAttachments}" Margin="0,0,0,6">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource ChipButton}" Height="28" FontSize="11.5" ToolTip="Entfernen"
+                                            Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
+                                        <TextBlock><Run Text="📎 "/><Run Text="{Binding FileName, Mode=OneWay}"/><Run Text="  ×"/></TextBlock>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Border Background="{DynamicResource SurfaceAlt}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="12,8,8,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid>
+                                    <TextBox x:Name="InputBox" Style="{StaticResource PlainBox}" FontSize="14.5" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                             MinHeight="44" MaxHeight="220" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                             Text="{Binding Input, UpdateSourceTrigger=PropertyChanged}">
+                                        <TextBox.InputBindings>
+                                            <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding SendCommand}"/>
+                                        </TextBox.InputBindings>
+                                    </TextBox>
+                                    <TextBlock Text="Frag Eagle 1.1 …  (Strg+Enter zum Senden)" FontSize="14.5" Foreground="{DynamicResource TextMuted}" Margin="2,1,0,0" IsHitTestVisible="False"
+                                               Visibility="{Binding Text, ElementName=InputBox, Converter={StaticResource Hidden}}"/>
+                                </Grid>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <Button Style="{StaticResource IconButton}" Content="📎" FontSize="15" ToolTip="Text-, Markdown- oder C#-Datei anhängen" Command="{Binding AttachCommand}"/>
+                                    <Button Style="{StaticResource ActionButton}" Height="38" Padding="16,0" Content="Senden ⏎" Command="{Binding SendCommand}"
+                                            Visibility="{Binding IsBusy, Converter={StaticResource Hidden}}"/>
+                                    <Button Style="{StaticResource SecondaryButton}" Height="38" Padding="16,0" Content="■ Stopp" Command="{Binding CancelCommand}"
+                                            Visibility="{Binding IsBusy, Converter={StaticResource Visible}}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Settings -->
+        <Grid Grid.ColumnSpan="3" Background="#B0000000" Panel.ZIndex="20" Visibility="{Binding ShowSettings, Converter={StaticResource Visible}}">
+            <Border DataContext="{Binding Settings}" Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+                    CornerRadius="{DynamicResource CardRadius}" Padding="24" MaxWidth="620" Margin="24" VerticalAlignment="Center">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                    <StackPanel>
+                        <TextBlock Text="Eagle 1.1 – Einstellungen" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="Alles bleibt lokal auf diesem PC." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,14"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Ollama-Adresse" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding ApiAddress, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Modell" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Temperatur (0–2)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding Temperature, UpdateSourceTrigger=PropertyChanged}" ToolTip="Niedrig = genauer, hoch = kreativer"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Kontext (Tokens)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding ContextTokens, UpdateSourceTrigger=PropertyChanged}" ToolTip="Wie viel das Modell auf einmal liest (num_ctx)"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Verlauf (Zeichen)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MaxHistory, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ältere Nachrichten darüber hinaus werden nicht mehr mitgeschickt"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Wissensbasis" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,14,0,5"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <Button x:Name="KnowledgeToggle" Style="{StaticResource ChipButton}" Height="34" Click="KnowledgeToggle_Click"/>
+                            <TextBlock Grid.Column="1" Text="{Binding KnowledgeInfo}" FontSize="11.5" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0,8,0"/>
+                            <Button Grid.Column="2" Style="{StaticResource ChipButton}" Height="34" Margin="0" Content="📁 Ordner öffnen"
+                                    Command="{Binding DataContext.OpenKnowledgeCommand, ElementName=Root}"/>
+                        </Grid>
+
+                        <Grid Margin="0,14,0,5">
+                            <TextBlock Text="System-Prompt" FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
+                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Margin="0" HorizontalAlignment="Right" Content="Standard wiederherstellen"
+                                    Command="{Binding DataContext.ResetPromptCommand, ElementName=Root}"/>
+                        </Grid>
+                        <TextBox Style="{StaticResource InputTextBox}" Height="200" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" Padding="12,8"
+                                 VerticalScrollBarVisibility="Auto" FontSize="12.5" Text="{Binding SystemPrompt, UpdateSourceTrigger=PropertyChanged}"/>
+
+                        <TextBlock Text="{Binding Error}" Foreground="{DynamicResource OrangeBrush}" FontSize="12.5" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding Error, Converter={StaticResource Visible}}"/>
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Button Style="{StaticResource SecondaryButton}" Content="Abbrechen" Command="{Binding DataContext.CancelSettingsCommand, ElementName=Root}"/>
+                            <Button Grid.Column="2" Style="{StaticResource ActionButton}" Content="Speichern" Command="{Binding DataContext.SaveSettingsCommand, ElementName=Root}"/>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
