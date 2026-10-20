@@ -8,23 +8,18 @@
         Icon="app.ico"
         MinWidth="420" MinHeight="480"
         WindowStyle="None" ResizeMode="CanResize"
-        AllowsTransparency="True" Background="Transparent"
+        Background="{DynamicResource WindowBackground}"
         TextOptions.TextFormattingMode="Display"
         TextOptions.TextHintingMode="Fixed"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="0" CornerRadius="10" GlassFrameThickness="0" ResizeBorderThickness="7"/>
+        <shell:WindowChrome CaptionHeight="0" CornerRadius="0" GlassFrameThickness="0,0,0,1" ResizeBorderThickness="6" UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Grid>
-    <!-- Shadow drawn by its own border: an effect on the shell itself would blur every text inside. -->
-    <Border x:Name="WindowShadow" Margin="14" CornerRadius="10" Background="{DynamicResource WindowBackground}">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="30" ShadowDepth="6" Opacity="0.3" Color="#000000"/>
-        </Border.Effect>
-    </Border>
-    <Border x:Name="WindowShell" Margin="14" CornerRadius="10" RenderOptions.ClearTypeHint="Enabled"
-            Background="{DynamicResource WindowBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+    <Grid x:Name="RootGrid">
+    <!-- A normal (not see-through) window: Windows 11 draws the rounded corners and the shadow itself,
+         which keeps every frame cheap and every text sharp with ClearType. -->
+    <Border x:Name="WindowShell" RenderOptions.ClearTypeHint="Enabled" Background="{DynamicResource WindowBackground}">
 
         <Grid>
             <Grid.RowDefinitions>
@@ -39,6 +34,7 @@
             <local:AmericaBackdrop x:Name="AmericaLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:MinecraftBackdrop x:Name="MinecraftLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:EagleBackdrop x:Name="EagleLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
+            <local:MysticBackdrop x:Name="MysticLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
 
             <!-- Custom title bar -->
             <Grid x:Name="TitleBarGrid" Grid.Row="0" Margin="24,0,16,0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -60,8 +56,8 @@
                             </ControlTemplate>
                         </Button.Template>
                     </Button>
-                    <Popup x:Name="AppSwitcherPopup" PlacementTarget="{Binding ElementName=AppSwitcherButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="0" VerticalOffset="8">
-                        <Grid Margin="0,0,14,14">
+                    <Popup x:Name="AppSwitcherPopup" PlacementTarget="{Binding ElementName=AppSwitcherButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="0" VerticalOffset="8" Opened="Popup_Opened">
+                        <Grid Margin="0,0,14,14" TextOptions.TextFormattingMode="Display" RenderOptions.ClearTypeHint="Enabled">
                         <Border Background="{DynamicResource PopupBrush}" CornerRadius="{DynamicResource CardRadius}">
                             <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.32"/></Border.Effect>
                         </Border>
@@ -106,8 +102,8 @@
                     </Border>
                     <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Content="⚙" FontSize="19" ToolTip="{DynamicResource L.tip.settings}" Click="SettingsButton_Click"/>
                     <Button x:Name="FullscreenButton" Style="{StaticResource IconButton}" Content="⛶" FontSize="17" ToolTip="{DynamicResource L.tip.fullscreen}" Click="FocusButton_Click"/>
-                    <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide" HorizontalOffset="-340" VerticalOffset="8">
-                        <Grid Margin="0,0,14,14">
+                    <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="-340" VerticalOffset="8" Opened="Popup_Opened">
+                        <Grid Margin="0,0,14,14" TextOptions.TextFormattingMode="Display" RenderOptions.ClearTypeHint="Enabled">
                             <Border Background="{DynamicResource PopupBrush}" CornerRadius="{DynamicResource CardRadius}">
                                 <Border.Effect><DropShadowEffect BlurRadius="26" ShadowDepth="6" Opacity="0.34"/></Border.Effect>
                             </Border>
@@ -218,10 +214,14 @@
                             </Grid>
 
                             <!-- Viewbox lets the time grow and shrink with the window (small window up to beamer). -->
-                            <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="Both" Margin="0,10">
+                            <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="Both" Margin="0,10" TextOptions.TextFormattingMode="Ideal">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock x:Name="MainTimeText" TextOptions.TextFormattingMode="Ideal" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold"/>
+                                    <Grid>
+                                        <!-- The glow is a blurred copy behind the time, so the time itself stays razor sharp. -->
+                                        <TextBlock x:Name="MainTimeGlow" Typography.NumeralAlignment="Tabular" Text="{Binding Text, ElementName=MainTimeText}" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold" Foreground="{Binding Foreground, ElementName=MainTimeText}" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                        <TextBlock x:Name="MainTimeText" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold"/>
+                                    </Grid>
                                     <TextBlock x:Name="MicrosecondsText" Typography.NumeralAlignment="Tabular" Text=".000000" FontFamily="{DynamicResource DisplayFont}" FontSize="24" FontWeight="Medium" Foreground="{DynamicResource AccentBrush}" Opacity="0.7" VerticalAlignment="Bottom" Margin="8,0,0,13"/>
                                 </StackPanel>
                                 <TextBlock x:Name="DateText" Text="Donnerstag, 15. Oktober 2026" FontSize="18" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" Margin="0,10,0,0"/>
@@ -267,7 +267,10 @@
                                     <TextBlock x:Name="LessonLabelText" Text="Stunde endet in" FontSize="20" FontWeight="Bold"/>
                                     <TextBlock x:Name="LessonNextText" Text="" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                                 </StackPanel>
-                                <TextBlock x:Name="LessonCountdownText" TextOptions.TextFormattingMode="Ideal" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="60" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0" TextOptions.TextFormattingMode="Ideal">
+                                    <TextBlock x:Name="LessonCountdownGlow" Typography.NumeralAlignment="Tabular" Text="{Binding Text, ElementName=LessonCountdownText}" FontFamily="{DynamicResource DisplayFont}" FontSize="{Binding FontSize, ElementName=LessonCountdownText}" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                    <TextBlock x:Name="LessonCountdownText" Typography.NumeralAlignment="Tabular" Text="00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="60" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                                </Grid>
                             </Grid>
 
                             <Grid Grid.Row="2" Margin="0,12,0,0">
@@ -302,7 +305,7 @@
                         </Grid>
 
                         <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" Focusable="False">
-                            <StackPanel x:Name="ScheduleList"/>
+                            <StackPanel x:Name="ScheduleList" TextOptions.TextFormattingMode="Ideal"/>
                         </ScrollViewer>
 
                         <Border Grid.Row="2" Background="{DynamicResource SurfaceAlt}" CornerRadius="{DynamicResource CardRadius}" Padding="14,10" Margin="0,12,0,0"
@@ -325,15 +328,7 @@
                             </StackPanel>
                         </Border>
 
-                        <Grid Grid.Row="3" Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="46"/>
-                            </Grid.ColumnDefinitions>
-                            <Button x:Name="SyncButton" Style="{StaticResource ActionButton}" Content="{DynamicResource L.sync.button}" Padding="8,0" Click="SyncButton_Click"/>
-                            <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Padding="0" Content="✦" FontSize="16" ToolTip="{DynamicResource L.tip.fireworks}" Click="FireworksButton_Click"/>
-                        </Grid>
+                        <Button x:Name="SyncButton" Grid.Row="3" Margin="0,10,0,0" Style="{StaticResource ActionButton}" Content="{DynamicResource L.sync.button}" Padding="8,0" Click="SyncButton_Click"/>
                     </Grid>
                 </Border>
             </Grid>
@@ -571,6 +566,7 @@
             <local:HackerScanlines x:Name="HackerScanLayer" Grid.RowSpan="2" Panel.ZIndex="200" Visibility="Collapsed"/>
             <local:AnimeOverlay x:Name="AnimeTop" Grid.RowSpan="2" Panel.ZIndex="200" Visibility="Collapsed"/>
             <local:MinecraftOverlay x:Name="MinecraftTop" Grid.RowSpan="2" Panel.ZIndex="200" Visibility="Collapsed"/>
+            <local:MysticOverlay x:Name="MysticTop" Grid.RowSpan="2" Panel.ZIndex="200" Visibility="Collapsed"/>
         </Grid>
     </Border>
     </Grid>

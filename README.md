@@ -1,6 +1,6 @@
 # Freedom
 
-Windows-Desktop-App (WPF, .NET 9) für den Schulalltag an der HTL: NTP-genaue Uhr mit echtem Stundenplan, Feuerwerk zum Stundenende, Koffein-Tracker, Aufgaben, Notizen und eine lokale Lern-KI – in sechs Themes.
+Windows-Desktop-App (WPF, .NET 9) für den Schulalltag an der HTL: NTP-genaue Uhr mit echtem Stundenplan, Feuerwerk zum Stundenende, Trauer-Show zum Stundenbeginn, Koffein-Tracker, Aufgaben, Notizen und eine lokale Lern-KI – in neun Themes.
 
 ## Funktionen
 
@@ -9,9 +9,9 @@ Windows-Desktop-App (WPF, .NET 9) für den Schulalltag an der HTL: NTP-genaue Uh
 - **Feuerwerk:** Casino-Show mit selbst erzeugtem Sound zum Ende jeder echten Stunde; Test mit `F9` oder ✦.
 - **Koffein-Tracker:** 53 Getränke mit selbst gezeichneten Bildern, Tageslimit und geschätzter aktiver Menge.
 - **Aufgaben:** Listen, Mein Tag, Wichtig, Fälligkeiten, Details mit Notiz.
-- **Notizen:** Suche, Anheften, Farbmarken, Checklisten, automatisches Speichern.
+- **Notizen (wie OneNote):** Abschnitte mit Seiten, Menüband (Fett, Kursiv, Textmarker, Schriftfarbe, Überschriften, Listen, Einzüge), Aufgaben-/Wichtig-/Frage-Tags, Tabellen, Bilder, Datumsstempel, Suche, Anheften, automatisches Speichern, Export als .txt, .pdf und .docx sowie Drucken.
 - **AI – Eagle 1.1:** lokale Lern-KI für C#, OOP, Unity, UML, Patterns, SQL und mehr über Ollama, ohne Cloud. Details: [`ViennaAtomicClock/Tutor/README.md`](ViennaAtomicClock/Tutor/README.md).
-- **Themes:** Kriegsfilm, Hacker, Anime, Tetris, America, Minecraft – jeweils hell, dunkel oder „Farbig“ mit eigenem Farbwähler. Fenster ist responsiv.
+- **Themes:** Standard, Eagle, Kriegsfilm, Hacker, Anime, Tetris, America, Minecraft, Mystisch – jeweils hell, dunkel oder „Farbig“ mit eigenem Farbwähler. Fenster ist responsiv.
 
 ## Bauen und starten
 

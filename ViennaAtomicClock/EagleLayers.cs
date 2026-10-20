@@ -154,6 +154,15 @@ internal static class ThemePreview
                 dc.DrawEllipse(null, new Pen(ring, 3), new Point(118, 16), 34, 12);
                 dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(255, 212, 59)), null, new Point(150, 14), 4, 4);
                 break;
+            case Themes.Mystic:
+                dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(230, 255, 240, 226)), null, new Point(132, 14), 9, 9);
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(200, 170, 40, 60)), null, new Rect(112, 4, 2, 16));
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(200, 170, 40, 60)), null, new Rect(150, 4, 2, 16));
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(200, 170, 40, 60)), null, new Rect(108, 3, 48, 3));
+                foreach (var (x, y, r) in new[] { (14.0, 10.0, 7.0), (26.0, 6.0, 6.0), (38.0, 14.0, 6.0), (6.0, 20.0, 5.0), (60.0, 86.0, 3.0), (90.0, 12.0, 3.0), (150.0, 84.0, 3.0) })
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(200, 255, 170, 200)), null, new Point(x, y), r, r);
+                dc.DrawRectangle(new LinearGradientBrush(Color.FromArgb(0, 255, 255, 255), Color.FromArgb(110, 255, 255, 255), 90), null, new Rect(0, 60, 160, 30));
+                break;
             case Themes.War:
                 for (var i = 0; i < 40; i++)
                     dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(90, 0, 0, 0)), null, new Rect(random.NextDouble() * 160, random.NextDouble() * 90, 1.5, 1.5));

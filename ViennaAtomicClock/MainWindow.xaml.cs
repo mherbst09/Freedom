@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -118,6 +119,9 @@ public partial class MainWindow : Window
         };
 
         PreviewKeyDown += MainWindow_PreviewKeyDown;
+        SourceInitialized += (_, _) => WindowFrame.SetRounded(this, !_focusMode);
+        StateChanged += (_, _) => UpdateMaximizedMargin();
+        SmoothScroll.Attach(this);
         SizeChanged += (_, _) => ApplyResponsiveLayout();
         Loc.Changed += OnLanguageChanged;
         OnLanguageChanged();
@@ -686,10 +690,20 @@ public partial class MainWindow : Window
         SettingsPopup.IsOpen = true;
     }
 
-    private void LightModeButton_Click(object sender, RoutedEventArgs e) => SetLook(App.ThemeName, false, null);
-    private void DarkModeButton_Click(object sender, RoutedEventArgs e) => SetLook(App.ThemeName, true, null);
+    private void LightModeButton_Click(object sender, RoutedEventArgs e) => SetLookSmooth(App.ThemeName, false, null);
+    private void DarkModeButton_Click(object sender, RoutedEventArgs e) => SetLookSmooth(App.ThemeName, true, null);
     private void ColorModeButton_Click(object sender, RoutedEventArgs e) =>
-        SetLook(App.ThemeName, dark: true, App.ParseColor(_settings.CustomColor) ?? Color.FromRgb(61, 123, 255));
+        SetLookSmooth(App.ThemeName, dark: true, App.ParseColor(_settings.CustomColor) ?? Color.FromRgb(61, 123, 255));
+
+    /// <summary>Theme change with a short crossfade from the old look to the new one.</summary>
+    private void SetLookSmooth(string theme, bool dark, Color? custom) =>
+        Motion.Crossfade(WindowShell, RootGrid, () => SetLook(theme, dark, custom));
+
+    private void Popup_Opened(object? sender, EventArgs e)
+    {
+        if (sender is Popup { Child: FrameworkElement content } popup)
+            Motion.PopIn(content, popup == SettingsPopup ? 0.92 : 0.1);
+    }
 
     /// <param name="custom">Colour for the coloured mode, or null for the light/dark palette.</param>
     private void SetLook(string theme, bool dark, Color? custom, bool save = true)
@@ -725,9 +739,12 @@ public partial class MainWindow : Window
         MinecraftLayer.Visibility = theme == Themes.Minecraft ? Visibility.Visible : Visibility.Collapsed;
         MinecraftTop.Visibility = theme == Themes.Minecraft ? Visibility.Visible : Visibility.Collapsed;
         EagleLayer.Visibility = theme == Themes.Eagle ? Visibility.Visible : Visibility.Collapsed;
+        MysticLayer.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
+        MysticTop.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
 
         var accent = ((SolidColorBrush)FindResource("AccentBrush")).Color;
-        MainTimeText.Effect = theme switch
+        // Glows sit on a blurred copy behind the text; an effect on the text itself would make it soft.
+        MainTimeGlow.Effect = theme switch
         {
             Themes.Hacker => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 18, ShadowDepth = 0, Opacity = App.IsDark ? 0.9 : 0.35 },
             Themes.Anime => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 22, ShadowDepth = 0, Opacity = 0.55 },
@@ -736,14 +753,17 @@ public partial class MainWindow : Window
             // Hard pixel shadow like game text.
             Themes.Minecraft => new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 0, ShadowDepth = 5, Direction = 315, Opacity = 0.6 },
             Themes.Eagle => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 24, ShadowDepth = 0, Opacity = App.IsDark ? 0.6 : 0.35 },
+            Themes.Mystic => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 28, ShadowDepth = 0, Opacity = App.IsDark ? 0.7 : 0.45 },
             _ => App.CustomColor is not null && theme != Themes.Standard ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.45 } : null
         };
-        LessonCountdownText.Effect = theme == Themes.Hacker && App.IsDark
+        LessonCountdownGlow.Effect = theme == Themes.Hacker && App.IsDark
             ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 14, ShadowDepth = 0, Opacity = 0.8 }
             : null;
+        MainTimeGlow.Visibility = MainTimeGlow.Effect is null ? Visibility.Collapsed : Visibility.Visible;
+        LessonCountdownGlow.Visibility = LessonCountdownGlow.Effect is null ? Visibility.Collapsed : Visibility.Visible;
         AppSwitcherButton.Content = theme switch
         {
-            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", Themes.Eagle => "✦", _ => "⊞"
+            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", Themes.Eagle => "✦", Themes.Mystic => "🌸", _ => "⊞"
         };
         AppSwitcherButton.FontSize = theme == Themes.Hacker ? 17 : 22;
 
@@ -754,10 +774,9 @@ public partial class MainWindow : Window
 
     private void ApplyShellRadius()
     {
-        var radius = _focusMode ? 0 : Themes.WindowRadius(App.ThemeName);
-        WindowShell.CornerRadius = new CornerRadius(radius);
-        WindowShadow.CornerRadius = new CornerRadius(radius);
-        var inner = Math.Max(0, radius - 1);
+        // Windows 11 rounds the window itself; the layers only need to stay inside it.
+        WindowFrame.SetRounded(this, !_focusMode);
+        var inner = 0;
         FilmGrain.Radius = inner;
         HackerRainLayer.Radius = inner;
         HackerScanLayer.Radius = inner;
@@ -768,6 +787,8 @@ public partial class MainWindow : Window
         MinecraftLayer.Radius = inner;
         MinecraftTop.Radius = inner;
         EagleLayer.Radius = inner;
+        MysticLayer.Radius = inner;
+        MysticTop.Radius = inner;
     }
 
     private void UpdateTitleTexts()
@@ -888,7 +909,7 @@ public partial class MainWindow : Window
             }
             // The shared button template centres its content, so the tile is sized to fill the button by hand.
             button.SizeChanged += (_, _) => { tile.Width = button.ActualWidth; tile.Height = button.ActualHeight; };
-            button.Click += (_, _) => SetLook(id, _settings.DarkMode, App.CustomColor);
+            button.Click += (_, _) => SetLookSmooth(id, _settings.DarkMode, App.CustomColor);
             ThemeList.Children.Add(button);
         }
     }
@@ -971,6 +992,13 @@ public partial class MainWindow : Window
 
     private void FocusButton_Click(object sender, RoutedEventArgs e) => ToggleFocusMode();
 
+    /// <summary>A maximised borderless window hangs over the screen edges, so the content is pulled back in.</summary>
+    private void UpdateMaximizedMargin()
+    {
+        if (_focusMode) return;
+        WindowShell.Margin = WindowState == WindowState.Maximized ? WindowFrame.MaximizedOverhang(this) : new Thickness(0);
+    }
+
     private void ToggleFocusMode()
     {
         if (!_focusMode)
@@ -984,8 +1012,6 @@ public partial class MainWindow : Window
             // borderless window only fills the work area, so the bounds are set by hand.
             var screen = FireworksWindow.MonitorArea(this);
             WindowShell.Margin = new Thickness(0);
-            WindowShadow.Margin = new Thickness(0);
-            WindowShell.CornerRadius = new CornerRadius(0);
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Normal;
             ResizeMode = ResizeMode.NoResize;
@@ -1008,9 +1034,8 @@ public partial class MainWindow : Window
             Height = _previousBounds.Height;
             WindowState = _previousWindowState;
             WindowStyle = _previousWindowStyle;
-            WindowShell.Margin = new Thickness(14);
-            WindowShadow.Margin = new Thickness(14);
             _focusMode = false;
+            UpdateMaximizedMargin();
             ApplyShellRadius();
         }
     }
@@ -1112,6 +1137,7 @@ public partial class MainWindow : Window
 
     private void SwitchPage(string page)
     {
+        var previous = _page;
         _page = page is "caffeine" or "todo" or "notes" or "tutor" ? page : "clock";
         ClockPage.Visibility = _page == "clock" ? Visibility.Visible : Visibility.Collapsed;
         CaffeineScroll.Visibility = _page == "caffeine" ? Visibility.Visible : Visibility.Collapsed;
@@ -1121,6 +1147,8 @@ public partial class MainWindow : Window
         UpdateTitleTexts();
         Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
         _settings.ActivePage = _page;
+        if (previous != _page || !IsLoaded)
+            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, _ => (UIElement)ClockPage });
         UpdateNavigationVisuals();
         UpdateHeaderForCurrentPage();
         if (_showingCaffeine) RefreshCaffeineSummary();

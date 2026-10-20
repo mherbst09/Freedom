@@ -19,6 +19,7 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="app.ico" />

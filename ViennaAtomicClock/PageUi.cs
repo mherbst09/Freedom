@@ -84,13 +84,21 @@ internal static class Ui
     /// <summary>Row that highlights on hover and reacts to clicks.</summary>
     public static Border Row(UIElement child, Action click, bool selected)
     {
-        var row = new Border { Child = child, Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 0, 0, 4), Cursor = Cursors.Hand };
+        // The hover colour fades in on its own layer, so moving over the list feels soft instead of blinking.
+        var hover = new Border { Opacity = 0, IsHitTestVisible = false };
+        hover.SetResourceReference(Border.BackgroundProperty, "HoverBrush");
+        hover.SetResourceReference(Border.CornerRadiusProperty, "CardRadius");
+        var content = new Border { Child = child, Padding = new Thickness(10, 8, 10, 8) };
+        var layers = new Grid();
+        layers.Children.Add(hover);
+        layers.Children.Add(content);
+        var row = new Border { Child = layers, Margin = new Thickness(0, 0, 0, 4), Cursor = Cursors.Hand };
         row.SetResourceReference(Border.CornerRadiusProperty, "CardRadius");
         row.SetResourceReference(Border.BackgroundProperty, selected ? "AccentSoft" : "SurfaceAlt");
         if (!selected)
         {
-            row.MouseEnter += (_, _) => row.SetResourceReference(Border.BackgroundProperty, "HoverBrush");
-            row.MouseLeave += (_, _) => row.SetResourceReference(Border.BackgroundProperty, "SurfaceAlt");
+            row.MouseEnter += (_, _) => Motion.To(hover, UIElement.OpacityProperty, 1);
+            row.MouseLeave += (_, _) => Motion.To(hover, UIElement.OpacityProperty, 0, 220);
         }
         // Buttons inside the row (check box, star) handle their own clicks first.
         row.MouseLeftButtonUp += (_, _) => click();

@@ -17,6 +17,7 @@ internal static class Themes
     public const string Minecraft = "minecraft";
     public const string Standard = "standard";
     public const string Eagle = "eagle";
+    public const string Mystic = "mystic";
 
     public static readonly (string Id, string Label, string Glyph, string Hint)[] All =
     {
@@ -27,7 +28,8 @@ internal static class Themes
         (Anime, "Anime", "🐾", "Pink, Katzenohren, Pfoten"),
         (Tetris, "Tetris", "▦", "Fallende Steine, Arcade-Look"),
         (America, "America", "★", "Stars and Stripes, wehende Fahne"),
-        (Minecraft, "Minecraft", "⛏", "Blöcke, Wolken, Pixel-Look")
+        (Minecraft, "Minecraft", "⛏", "Blöcke, Wolken, Pixel-Look"),
+        (Mystic, "Mystisch", "🌸", "Kirschblüten, Nebel, Mondlicht")
     };
 
     public static string Normalize(string? id) => All.Any(t => t.Id == id) ? id! : War;
@@ -72,6 +74,8 @@ internal static class Themes
             Minecraft => ("Lucida Console, Consolas", "Lucida Console, Consolas", "Lucida Console, Consolas", 6.0),
             Standard => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Segoe UI Variable Display Semibold, Segoe UI Semibold", 14.0),
             Eagle => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Segoe UI Variable Display Semibold, Segoe UI Semibold", 16.0),
+            // Brush-like serif titles in the spirit of Japanese Mincho type.
+            Mystic => ("Yu Gothic UI, Segoe UI Variable Text, Segoe UI", "Yu Mincho, Georgia, Segoe UI", "Yu Mincho Demibold, Yu Mincho, Georgia", 14.0),
             _ => ("Consolas, Courier New", "Consolas, Courier New", "Stencil, Impact, Arial Black", 10.0)
         };
         resources["UiFont"] = new FontFamily(ui);
@@ -83,13 +87,13 @@ internal static class Themes
     /// <summary>Corner radius of the whole window for a theme.</summary>
     public static double WindowRadius(string theme) => theme switch
     {
-        Hacker => 14, Anime => 28, Tetris => 14, America => 18, Minecraft => 12, Standard => 20, Eagle => 22, _ => 16
+        Hacker => 14, Anime => 28, Tetris => 14, America => 18, Minecraft => 12, Standard => 20, Eagle => 22, Mystic => 20, _ => 16
     };
 
     /// <summary>How see-through the cards are, so animated backdrops can shine through.</summary>
     private static double SurfaceOpacity(string theme) => theme switch
     {
-        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, Eagle => 0.86, _ => 1
+        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, Eagle => 0.86, Mystic => 0.84, _ => 1
     };
 
     /// <summary>Dark palette tinted with the picked colour; the colour itself becomes the accent.</summary>
@@ -195,6 +199,16 @@ internal static class Themes
         {
             "#F6F4FF", "#E6FFFFFF", "#E6F4F1FF", "#E2DCF5", "#1A1530", "#5C5580", "#8E88AE", "#F0ECFF", "#ECE7FA",
             "#F01E7E", "#FFFFFF", "#FFE0EE", "#0FB8C9", "#D6F6F9", "#C99700"
+        },
+        (Mystic, true) => new[]
+        {
+            "#0E0B1A", "#D1181428", "#D8211B35", "#3B2F5A", "#F7EEF5", "#D3BFDB", "#9483A8", "#2C2445", "#2A2240",
+            "#FF8FB8", "#2A0E1C", "#B5502846", "#9AE6C8", "#1E3A35", "#FFC37A"
+        },
+        (Mystic, false) => new[]
+        {
+            "#F4ECF2", "#D9FFFAFD", "#E0FBF1F6", "#E8D2DF", "#2A1B2E", "#6A4F6E", "#9C86A0", "#F6E2EC", "#EFDCE8",
+            "#D9487E", "#FFFFFF", "#FADCE8", "#2F9C7A", "#D6F1E7", "#C77A1E"
         },
         (_, true) => new[]
         {
