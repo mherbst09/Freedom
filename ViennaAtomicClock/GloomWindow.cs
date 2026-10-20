@@ -19,6 +19,7 @@ internal sealed class GloomWindow : Window
     public const double ShowSeconds = 15.0;
 
     private readonly GloomCanvas _canvas;
+    private readonly AnimationDismissController _dismissController;
     private readonly Stopwatch _stopwatch = new();
     private SoundPlayer? _sound;
     private MemoryStream? _soundStream;
@@ -54,6 +55,7 @@ internal sealed class GloomWindow : Window
         var plan = GloomPlan.Create(focus, Random.Shared);
         _canvas = new GloomCanvas(plan, Width, Height);
         Content = _canvas;
+        _dismissController = new AnimationDismissController(this);
 
         var soundTask = Task.Run(() =>
         {

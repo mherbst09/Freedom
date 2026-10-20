@@ -18,6 +18,7 @@ internal sealed class FireworksWindow : Window
     public const double ShowSeconds = 15.0;
 
     private readonly FireworksCanvas _canvas;
+    private readonly AnimationDismissController _dismissController;
     private readonly Stopwatch _stopwatch = new();
     private SoundPlayer? _sound;
     private MemoryStream? _soundStream;
@@ -56,6 +57,7 @@ internal sealed class FireworksWindow : Window
         var show = FireworkShow.Create(Width, Height, focus, Random.Shared);
         _canvas = new FireworksCanvas(show, Width, Height);
         Content = _canvas;
+        _dismissController = new AnimationDismissController(this);
 
         // The soundtrack takes about a second to synthesize, so it is built off the UI thread and the show starts once it is ready.
         var screenWidth = Width;
