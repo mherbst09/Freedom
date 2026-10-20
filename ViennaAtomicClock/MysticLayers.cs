@@ -1,75 +1,44 @@
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace ViennaAtomicClock;
 
 /// <summary>
-/// Mystic theme backdrop: a moonlit Japanese night (or a misty pink dawn in light mode) with distant
-/// mountains, a torii gate, a swaying cherry tree in full bloom, drifting fog banks, falling petals
-/// and a few floating spirit lights.
+/// Cached mystic scenery: a moonlit Japanese night (or a misty pink dawn in light mode) with distant
+/// mountains, a torii gate and a cherry tree in full bloom. It is deliberately static so the clock
+/// is not repeatedly composited over a full-window redraw.
 /// </summary>
-internal sealed class MysticBackdrop : AnimatedLayer
+internal sealed class MysticBackdrop : FrameworkElement
 {
-    private static readonly Geometry Petal = Shapes.Petal;
-
-    private sealed class Falling
-    {
-        public double X, Y, Vx, Vy, Rot, Spin, Flip, FlipSpeed, Size;
-        public Color Color;
-    }
-
-    private readonly List<Falling> _petals = new();
-    private readonly (double X, double Y, double Phase, double Speed, double Size)[] _spirits;
-    private double _time;
+    private readonly DispatcherTimer _resizeDebounce;
     private Size _builtFor;
     private bool _builtDark;
     private ImageSource? _scenery;
-    private double _sizeChangedAt;
     private Size _pendingSize;
 
-    public MysticBackdrop() : base(30)
+    public MysticBackdrop()
     {
-        var random = new Random(23);
-        _spirits = Enumerable.Range(0, 7).Select(_ => (random.NextDouble(), random.NextDouble(), random.NextDouble() * 6, 0.02 + random.NextDouble() * 0.03, 3 + random.NextDouble() * 3)).ToArray();
-    }
-
-    protected override void Step(double dt)
-    {
-        _time += dt;
-        var w = ActualWidth;
-        var h = ActualHeight;
-        var wind = 18 + Math.Sin(_time * 0.3) * 14;
-        while (_petals.Count < 46) _petals.Add(NewPetal(w, h, scatter: _time < 0.2));
-        foreach (var p in _petals)
+        IsHitTestVisible = false;
+        _resizeDebounce = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
+        _resizeDebounce.Tick += (_, _) =>
         {
-            p.X += (p.Vx + wind) * dt + Math.Sin(_time * 1.3 + p.Flip) * 12 * dt;
-            p.Y += p.Vy * dt;
-            p.Rot += p.Spin * dt;
-            p.Flip += p.FlipSpeed * dt;
-        }
-        for (var i = 0; i < _petals.Count; i++)
-            if (_petals[i].Y > h + 20 || _petals[i].X > w + 30)
-                _petals[i] = NewPetal(w, h, scatter: false);
-    }
-
-    private Falling NewPetal(double w, double h, bool scatter)
-    {
-        // Most petals start in the cherry tree's crown, some anywhere along the top edge.
-        var fromTree = Random.NextDouble() < 0.65;
-        Color[] pinks = { Color.FromRgb(255, 183, 206), Color.FromRgb(255, 205, 222), Color.FromRgb(248, 160, 190), Color.FromRgb(255, 228, 236) };
-        return new Falling
-        {
-            X = scatter ? Random.NextDouble() * w : fromTree ? Random.NextDouble() * w * 0.45 : Random.NextDouble() * w * 0.9 - 40,
-            Y = scatter ? Random.NextDouble() * h : fromTree ? Random.NextDouble() * h * 0.45 : -20,
-            Vx = Random.NextDouble() * 10,
-            Vy = 22 + Random.NextDouble() * 30,
-            Rot = Random.NextDouble() * 360,
-            Spin = (Random.NextDouble() - 0.5) * 140,
-            Flip = Random.NextDouble() * 6,
-            FlipSpeed = 1.5 + Random.NextDouble() * 2.5,
-            Size = 4 + Random.NextDouble() * 4.5,
-            Color = pinks[Random.Next(pinks.Length)]
+            _resizeDebounce.Stop();
+            BuildSnapshot(_pendingSize);
         };
+        Unloaded += (_, _) => _resizeDebounce.Stop();
+    }
+
+    /// <summary>The expensive scenery is static; only <see cref="MysticOverlay"/> animates.</summary>
+    internal double TargetFramesPerSecond => 0;
+
+    public double Radius { get; set; }
+
+    public void RefreshTheme()
+    {
+        if (_builtDark == App.IsDark && _scenery is not null) return;
+        _scenery = null;
+        InvalidateVisual();
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -77,59 +46,29 @@ internal sealed class MysticBackdrop : AnimatedLayer
         var w = ActualWidth;
         var h = ActualHeight;
         if (w <= 0 || h <= 0) return;
-        var dark = App.IsDark;
-        // The still picture is rendered once into a bitmap; while the window is being resized the old one is stretched.
         var area = new Size(w, h);
-        if (area != _pendingSize)
+        _pendingSize = area;
+        if (_scenery is null || _builtDark != App.IsDark)
+            BuildSnapshot(area);
+        else if (_builtFor != area)
         {
-            _pendingSize = area;
-            _sizeChangedAt = _time;
-        }
-        if (_scenery is null || _builtDark != dark || (_builtFor != area && _time - _sizeChangedAt >= 0.25))
-        {
-            _scenery = Snapshot(Scenery.Build(w, h, dark), w, h);
-            _builtFor = area;
-            _builtDark = dark;
+            // Stretch the old bitmap while resizing and rebuild once the user stops dragging.
+            _resizeDebounce.Stop();
+            _resizeDebounce.Start();
         }
 
-        PushShellClip(dc);
+        dc.PushClip(new RectangleGeometry(new Rect(0, 0, w, h), Radius, Radius));
         dc.DrawImage(_scenery, new Rect(0, 0, w, h));
-
-        // Fog banks drifting slowly in front of the mountains and the gate.
-        var fog = dark ? Color.FromRgb(196, 186, 230) : Color.FromRgb(255, 255, 255);
-        for (var i = 0; i < 5; i++)
-        {
-            var y = h * (0.52 + i * 0.1);
-            var x = w * (0.2 + i * 0.17) + Math.Sin(_time * (0.05 + i * 0.013) + i * 1.7) * w * 0.22;
-            var alpha = (dark ? 0.16 : 0.42) * (0.7 + 0.3 * Math.Sin(_time * 0.2 + i));
-            dc.PushOpacity(alpha);
-            dc.DrawImage(SoftGlow.Get(fog), new Rect(x - w * 0.55, y - h * 0.11, w * 1.1, h * 0.22));
-            dc.Pop();
-        }
-
-        // Spirit lights rising like fireflies.
-        if (dark)
-            foreach (var (sx, sy, phase, speed, size) in _spirits)
-            {
-                var y = h * (1.1 - ((sy + _time * speed) % 1.2));
-                var x = sx * w + Math.Sin(_time * 0.7 + phase) * 24;
-                var pulse = 0.55 + 0.45 * Math.Sin(_time * 2.1 + phase);
-                var tone = phase > 3 ? Color.FromRgb(160, 230, 255) : Color.FromRgb(255, 190, 220);
-                dc.DrawEllipse(FogBrush(tone, 0.5 * pulse), null, new Point(x, y), size * 5, size * 5);
-                dc.DrawEllipse(Fill(tone, 0.9 * pulse), null, new Point(x, y), size * 0.6, size * 0.6);
-            }
-
-        foreach (var p in _petals)
-        {
-            dc.PushTransform(new TranslateTransform(p.X, p.Y));
-            dc.PushTransform(new RotateTransform(p.Rot));
-            dc.PushTransform(new ScaleTransform(p.Size * (0.25 + Math.Abs(Math.Cos(p.Flip))), p.Size));
-            dc.DrawGeometry(Fill(p.Color, dark ? 0.85 : 0.95), null, Petal);
-            dc.Pop();
-            dc.Pop();
-            dc.Pop();
-        }
         dc.Pop();
+    }
+
+    private void BuildSnapshot(Size area)
+    {
+        if (area.Width <= 0 || area.Height <= 0) return;
+        _scenery = Snapshot(Scenery.Build(area.Width, area.Height, App.IsDark), area.Width, area.Height);
+        _builtFor = area;
+        _builtDark = App.IsDark;
+        InvalidateVisual();
     }
 
     private ImageSource Snapshot(Drawing drawing, double w, double h)
@@ -142,17 +81,6 @@ internal sealed class MysticBackdrop : AnimatedLayer
         bitmap.Render(visual);
         bitmap.Freeze();
         return bitmap;
-    }
-
-    private readonly Dictionary<(Color, int), Brush> _fog = new();
-
-    private Brush FogBrush(Color color, double alpha)
-    {
-        var level = (int)Math.Round(Math.Clamp(alpha, 0, 1) * 30);
-        if (_fog.TryGetValue((color, level), out var brush)) return brush;
-        var created = new RadialGradientBrush(Color.FromArgb((byte)(level * 255 / 30), color.R, color.G, color.B), Color.FromArgb(0, color.R, color.G, color.B));
-        created.Freeze();
-        return _fog[(color, level)] = created;
     }
 
     /// <summary>The still parts of the picture, drawn once per size: sky, moon, mountains, torii and the cherry tree.</summary>
@@ -297,13 +225,13 @@ internal sealed class MysticBackdrop : AnimatedLayer
     }
 }
 
-/// <summary>Mystic theme foreground: a few large petals glide over the cards and mist lies at the bottom edge.</summary>
+/// <summary>Mystic theme foreground: a few large petals glide smoothly over the cached scenery.</summary>
 internal sealed class MysticOverlay : AnimatedLayer
 {
     private readonly List<(double X, double Y, double Phase, double Speed, double Size, double Rot)> _petals = new();
     private double _time;
 
-    public MysticOverlay() : base(30) { }
+    public MysticOverlay() : base(60) { }
 
     protected override void Step(double dt)
     {
@@ -328,14 +256,6 @@ internal sealed class MysticOverlay : AnimatedLayer
         var h = ActualHeight;
         if (w <= 0) return;
         PushShellClip(dc);
-        var dark = App.IsDark;
-        var mist = dark ? Color.FromRgb(150, 130, 190) : Color.FromRgb(255, 255, 255);
-        var drift = Math.Sin(_time * 0.15) * w * 0.08;
-        dc.PushOpacity(dark ? 0.18 : 0.35);
-        dc.DrawImage(SoftGlow.Get(mist), new Rect(w * 0.3 + drift - w * 0.5, h + 10 - 60, w, 120));
-        dc.DrawImage(SoftGlow.Get(mist), new Rect(w * 0.78 - drift - w * 0.45, h + 16 - 54, w * 0.9, 108));
-        dc.Pop();
-
         foreach (var (x, y, phase, _, size, rot) in _petals)
         {
             dc.PushTransform(new TranslateTransform(x, y));
@@ -347,24 +267,6 @@ internal sealed class MysticOverlay : AnimatedLayer
             dc.Pop();
         }
         dc.Pop();
-    }
-}
-
-/// <summary>Soft round glow as a small cached bitmap: stretching it is far cheaper than a big gradient every frame.</summary>
-internal static class SoftGlow
-{
-    private static readonly Dictionary<Color, ImageSource> Cache = new();
-
-    public static ImageSource Get(Color color)
-    {
-        if (Cache.TryGetValue(color, out var image)) return image;
-        var visual = new DrawingVisual();
-        using (var dc = visual.RenderOpen())
-            dc.DrawEllipse(new RadialGradientBrush(color, Color.FromArgb(0, color.R, color.G, color.B)), null, new Point(64, 64), 64, 64);
-        var bitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(128, 128, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
-        bitmap.Freeze();
-        return Cache[color] = bitmap;
     }
 }
 

@@ -15,6 +15,18 @@ internal static partial class Strings
         ["tomorrow"] = new[] { "Morgen", "Tomorrow", "Mañana", "Amanhã", "Завтра", "明天", "明日" },
         ["yesterday"] = new[] { "Gestern", "Yesterday", "Ayer", "Ontem", "Вчера", "昨天", "昨日" },
 
+        // About Freedom
+        ["about.open"] = new[] { "Über Freedom", "About Freedom", "Acerca de Freedom", "Sobre o Freedom", "О Freedom", "关于 Freedom", "Freedom について" },
+        ["about.title"] = new[] { "ÜBER FREEDOM", "ABOUT FREEDOM", "ACERCA DE FREEDOM", "SOBRE O FREEDOM", "О FREEDOM", "关于 FREEDOM", "FREEDOM について" },
+        ["about.subtitle"] = new[] { "Dein lokaler Begleiter für Schule und Alltag", "Your local companion for school and everyday life", "Tu compañero local para la escuela y el día a día", "O teu companheiro local para a escola e o dia a dia", "Ваш локальный помощник для учёбы и повседневных дел", "你的本地学习与日常助手", "学校と日常のためのローカルアシスタント" },
+        ["about.version"] = new[] { "Version", "Version", "Versión", "Versão", "Версия", "版本", "バージョン" },
+        ["about.commit"] = new[] { "Commit", "Commit", "Commit", "Commit", "Коммит", "提交", "コミット" },
+        ["about.built"] = new[] { "Erstellt", "Built", "Compilado", "Compilado", "Сборка", "构建时间", "ビルド日時" },
+        ["about.runtime"] = new[] { "Laufzeit", "Runtime", "Entorno", "Runtime", "Среда выполнения", "运行时", "ランタイム" },
+        ["about.local"] = new[] { "Freedom speichert deine persönlichen Daten ausschließlich lokal und verwendet keine Telemetrie.", "Freedom stores your personal data locally and does not use telemetry.", "Freedom guarda tus datos personales solo localmente y no utiliza telemetría.", "O Freedom guarda os teus dados pessoais apenas localmente e não utiliza telemetria.", "Freedom хранит личные данные только локально и не использует телеметрию.", "Freedom 仅在本地保存你的个人数据，且不使用遥测。", "Freedom は個人データをローカルにのみ保存し、テレメトリを使用しません。" },
+        ["about.data"] = new[] { "Lokaler Datenordner", "Local data folder", "Carpeta de datos local", "Pasta de dados local", "Локальная папка данных", "本地数据文件夹", "ローカルデータフォルダー" },
+        ["about.unknown"] = new[] { "Unbekannt", "Unknown", "Desconocido", "Desconhecido", "Неизвестно", "未知", "不明" },
+
         // Settings
         ["settings"] = new[] { "EINSTELLUNGEN", "SETTINGS", "AJUSTES", "DEFINIÇÕES", "НАСТРОЙКИ", "设置", "設定" },
         ["settings.expand"] = new[] { "Größer / kleiner", "Larger / smaller", "Más grande / más pequeño", "Maior / menor", "Больше / меньше", "放大 / 缩小", "大きく / 小さく" },
@@ -112,6 +124,11 @@ internal static partial class Strings
         ["schedule.offline"] = new[] { " (offline)", " (offline)", " (sin conexión)", " (offline)", " (офлайн)", "（离线）", "（オフライン）" },
         ["schedule.loading"] = new[] { "Stundenplan wird geladen …", "Loading timetable …", "Cargando horario …", "A carregar horário …", "Загрузка расписания …", "正在加载课表 …", "時間割を読み込み中 …" },
         ["schedule.fixed"] = new[] { "feste Zeiten (kein Stundenplan)", "fixed times (no timetable)", "horas fijas (sin horario)", "horas fixas (sem horário)", "фиксированное время (нет расписания)", "固定时间（无课表）", "固定時間（時間割なし）" },
+        ["schedule.class.tip"] = new[] { "Klasse wechseln", "Change class", "Cambiar clase", "Mudar de turma", "Сменить класс", "切换班级", "クラスを変更" },
+        ["schedule.department"] = new[] { "ABTEILUNG", "DEPARTMENT", "DEPARTAMENTO", "DEPARTAMENTO", "ОТДЕЛЕНИЕ", "专业部门", "学科" },
+        ["schedule.class"] = new[] { "KLASSE", "CLASS", "CLASE", "TURMA", "КЛАСС", "班级", "クラス" },
+        ["schedule.classes.loading"] = new[] { "Klassen werden geladen …", "Loading classes …", "Cargando clases …", "A carregar turmas …", "Загрузка классов …", "正在加载班级 …", "クラスを読み込み中 …" },
+        ["schedule.classes.error"] = new[] { "Klassen konnten nicht geladen werden.", "Classes could not be loaded.", "No se pudieron cargar las clases.", "Não foi possível carregar as turmas.", "Не удалось загрузить классы.", "无法加载班级。", "クラスを読み込めませんでした。" },
         ["group.both"] = new[] { "Gruppe: beide", "Group: both", "Grupo: ambos", "Grupo: ambos", "Группа: обе", "组别：全部", "グループ：両方" },
         ["group.n"] = new[] { "Gruppe {0}", "Group {0}", "Grupo {0}", "Grupo {0}", "Группа {0}", "第 {0} 组", "グループ{0}" },
         ["status.now"] = new[] { "● jetzt", "● now", "● ahora", "● agora", "● сейчас", "● 现在", "● 今" },

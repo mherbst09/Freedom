@@ -16,6 +16,51 @@ public sealed class AnimationTests
     public AnimationTests(ITestOutputHelper output) => _output = output;
 
     [Fact]
+    public void Mystic_layers_are_synchronised_with_a_60_fps_clock()
+    {
+        UiTestHost.Run(() =>
+        {
+            Assert.Equal(0, new MysticBackdrop().TargetFramesPerSecond);
+            Assert.Equal(60, new MysticOverlay().TargetFramesPerSecond);
+        });
+    }
+
+    [Fact]
+    public void Mystic_moving_full_hd_layer_fits_the_60_fps_frame_budget()
+    {
+        Exception? failure = null;
+        double overlayMs = 0;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                const int width = 1920;
+                const int height = 1080;
+                var overlay = new MysticOverlay();
+                Prepare(overlay, width, height);
+                Render(overlay, width, height);
+
+                const int frames = 30;
+                var stopwatch = Stopwatch.StartNew();
+                for (var frame = 0; frame < frames; frame++) Render(overlay, width, height);
+                stopwatch.Stop();
+                overlayMs = stopwatch.Elapsed.TotalMilliseconds / frames;
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Mystic performance test timed out.");
+        Assert.Null(failure);
+        _output.WriteLine($"Mystic moving layer: {overlayMs:F2} ms/frame");
+        Assert.True(overlayMs <= 16.67, $"Mystic moving layer took {overlayMs:F2} ms/frame.");
+    }
+
+    [Fact]
     public void Both_overlays_advance_and_render_a_complete_show_without_errors()
     {
         Exception? failure = null;

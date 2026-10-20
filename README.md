@@ -14,20 +14,24 @@ Windows-Desktop-App (WPF, .NET 9) für den Schulalltag an der HTL: NTP-genaue Uh
 - **Wetter:** aktuelles Wetter über einem animierten Himmel (Sonne, Sterne, Wolken, Regen, Gewitter, Schnee, Nebel, Dämmerung), Unwetterwarnungen von GeoSphere Austria, Niederschlag der nächsten Stunde, Stundenleiste mit Sonnenauf-/untergang, 10-Tage-Vorhersage mit gemeinsamer Temperaturskala, Wetterkarte (Niederschlag, Temperatur, Wind, Luftqualität, Bewölkung, Luftdruck) mit Zeitachse, zwölf Detailkarten (Luftqualität, UV, Wind, Sonne, Niederschlag, gefühlte Temperatur, Feuchte, Sicht, Luftdruck, Wolken, Mond, Durchschnittswerte), mehrere Orte mit Suche (Name oder Postleitzahl), Windows-Standortbestimmung, Einheiten, Offline-Cache. Daten: Open-Meteo (CC BY 4.0), GeoSphere Austria, OpenStreetMap – ohne API-Schlüssel.
 - **Autoclicker:** 1 bis 500 Klicks pro Sekunde mit eigener hochauflösender Klick-Engine, Zeitintervall oder CPS, zufällige Abweichung, alle fünf Maustasten, Einzel-/Doppel-/Dreifachklick und Halten, feste Anzahl, Dauer oder „solange Taste gehalten“, feste Position, Klickrouten und Zufallsbereich mit Positionsauswahl über alle Monitore, globale Hotkeys (F6 Start/Stopp, F7 Pause, F8 Notstopp, Esc während des Laufs), Profile mit Import/Export, Maus-Aufzeichnung und Wiedergabe (nur Maus, keine Tastatur) sowie ein Testmodus, der die echte Klickrate misst, ohne zu klicken.
 - **Themes:** Standard, Eagle, Kriegsfilm, Hacker, Anime, Tetris, America, Minecraft, Mystisch – jeweils hell, dunkel oder „Farbig“ mit eigenem Farbwähler. Fenster ist responsiv.
+- **Über Freedom:** zeigt die semantische Version, den zugehörigen Git-Commit, das Builddatum, die .NET-Laufzeit und den lokalen Datenordner.
 
 ## Bauen und starten
 
-Voraussetzung: Windows 10/11 und das [.NET 9 SDK](https://dotnet.microsoft.com/download).
+Voraussetzung: Windows 10/11 und für eigene Builds das [.NET 9 SDK](https://dotnet.microsoft.com/download). Die veröffentlichte EXE bringt die benötigte .NET-Laufzeit mit. Der GLB-Viewer benötigt zusätzlich die unter Windows 11 üblicherweise vorhandene [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/#download-section); fehlt sie, zeigt Freedom eine Installationshilfe an.
 
 ```powershell
-cd ViennaAtomicClock
-dotnet run                     # zum Ausprobieren
-dotnet publish -c Release -r win-x64 --self-contained true -o ..\Release   # eigenständige Freedom.exe
+dotnet build Freedom.sln -c Release
+dotnet test Freedom.sln -c Release
+dotnet run --project ViennaAtomicClock
+dotnet publish ViennaAtomicClock\ViennaAtomicClock.csproj -c Release -r win-x64 --self-contained true -o Release
 ```
 
 Die fertige `Freedom.exe` ist nicht im Repository; sie wird mit dem Befehl oben erzeugt (oder als GitHub-Release bereitgestellt). Sie ist nicht signiert, daher kann Windows SmartScreen beim ersten Start nachfragen.
 
-Tests: `cd Freedom.Tests` und `dotnet test`.
+GitHub Actions führt Restore, Release-Build und sämtliche Tests auf Windows aus und stellt anschließend `Freedom.exe` als Build-Artefakt bereit. Versionsänderungen werden in [`CHANGELOG.md`](CHANGELOG.md), verwendete Komponenten und Datenquellen in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) dokumentiert.
+
+Das Projekt bleibt vorerst vollständig auf .NET 9, weil auf dem Entwicklungsrechner noch kein .NET-10-SDK installiert ist. Die Migration auf .NET 10 LTS wird erst gemeinsam für Anwendung, Tests, CI und Veröffentlichung vorgenommen, damit kein halbfertiger Frameworkwechsel im Repository landet.
 
 ## Daten
 

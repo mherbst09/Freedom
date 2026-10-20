@@ -15,6 +15,7 @@ internal sealed record TimetableEntry(
 
 internal sealed class TimetableData
 {
+    public string ClassName { get; set; } = WebUntisTimetable.DefaultClassName;
     public DateTime FetchedAt { get; set; }
     public DateTime From { get; set; }
     public DateTime To { get; set; }
@@ -48,26 +49,56 @@ internal sealed class TimetableData
     }
 }
 
+internal sealed record TimetableDepartment(int Id, string Name);
+
+internal sealed record TimetableClass(int Id, string Name, string LongName, List<int> DepartmentIds);
+
+internal sealed class TimetableCatalog
+{
+    public DateTime FetchedAt { get; set; }
+    public List<TimetableDepartment> Departments { get; set; } = new();
+    public List<TimetableClass> Classes { get; set; } = new();
+}
+
 /// <summary>
 /// Loads the class timetable from the school's public WebUntis (no login needed) and keeps
 /// a copy on disk so the app still knows the week when it starts without network.
 /// </summary>
 internal static class WebUntisTimetable
 {
-    public const string ClassName = "4BHITS";
+    public const string DefaultClassName = "4BHITS";
     private const string School = "htl-salzburg";
     private const string BaseUrl = "https://htl-salzburg.webuntis.com/WebUntis";
 
     private static readonly string CachePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ViennaAtomicClock", "timetable.json");
+    private static readonly string CatalogCachePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ViennaAtomicClock", "timetable-catalog.json");
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public static TimetableData? LoadCache()
+    public static TimetableData? LoadCache(string className = DefaultClassName)
     {
         try
         {
-            return File.Exists(CachePath) ? JsonSerializer.Deserialize<TimetableData>(File.ReadAllText(CachePath), JsonOptions) : null;
+            var data = File.Exists(CachePath)
+                ? JsonSerializer.Deserialize<TimetableData>(File.ReadAllText(CachePath), JsonOptions)
+                : null;
+            return data is not null && string.Equals(data.ClassName, className, StringComparison.OrdinalIgnoreCase) ? data : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static TimetableCatalog? LoadCatalogCache()
+    {
+        try
+        {
+            return File.Exists(CatalogCachePath)
+                ? JsonSerializer.Deserialize<TimetableCatalog>(File.ReadAllText(CatalogCachePath), JsonOptions)
+                : null;
         }
         catch
         {
@@ -88,44 +119,138 @@ internal static class WebUntisTimetable
         }
     }
 
-    /// <summary>Fetches this week and next week for the class.</summary>
-    public static async Task<TimetableData> FetchAsync(DateTime today, CancellationToken cancellation)
+    private static void SaveCatalogCache(TimetableCatalog catalog)
     {
-        using var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
-        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Freedom-Schuluhr/1.0");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CatalogCachePath)!);
+            File.WriteAllText(CatalogCachePath, JsonSerializer.Serialize(catalog, JsonOptions));
+        }
+        catch
+        {
+            // The picker can still use the freshly loaded catalog in memory.
+        }
+    }
 
-        // The start page hands out the school and tenant cookies the public API needs.
-        (await client.GetAsync($"{BaseUrl}/?school={School}", cancellation)).EnsureSuccessStatusCode();
+    /// <summary>Fetches this week and next week for the class.</summary>
+    public static Task<TimetableData> FetchAsync(DateTime today, CancellationToken cancellation) =>
+        FetchAsync(today, DefaultClassName, cancellation);
+
+    /// <summary>Fetches this week and next week for the selected class.</summary>
+    public static async Task<TimetableData> FetchAsync(DateTime today, string className, CancellationToken cancellation)
+    {
+        using var client = await OpenClientAsync(cancellation);
 
         var monday = today.Date.AddDays(-(((int)today.DayOfWeek + 6) % 7));
-        var classId = await FindClassIdAsync(client, monday, cancellation);
+        var catalog = await LoadCatalogAsync(client, monday, cancellation);
+        var selectedClass = catalog.Classes.FirstOrDefault(item =>
+            string.Equals(item.Name, className, StringComparison.OrdinalIgnoreCase));
+        if (selectedClass is null)
+            throw new InvalidOperationException($"Klasse {className} nicht gefunden.");
 
         var entries = new List<TimetableEntry>();
         for (var week = 0; week < 2; week++)
         {
             var date = monday.AddDays(7 * week);
             var json = await client.GetStringAsync(
-                $"{BaseUrl}/api/public/timetable/weekly/data?elementType=1&elementId={classId}&date={date:yyyy-MM-dd}&formatId=1", cancellation);
-            entries.AddRange(Parse(json, classId));
+                $"{BaseUrl}/api/public/timetable/weekly/data?elementType=1&elementId={selectedClass.Id}&date={date:yyyy-MM-dd}&formatId=1", cancellation);
+            entries.AddRange(Parse(json, selectedClass.Id));
         }
 
-        var data = new TimetableData { FetchedAt = DateTime.Now, From = monday, To = monday.AddDays(13), Entries = entries };
+        var data = new TimetableData
+        {
+            ClassName = selectedClass.Name,
+            FetchedAt = DateTime.Now,
+            From = monday,
+            To = monday.AddDays(13),
+            Entries = entries
+        };
         SaveCache(data);
         return data;
     }
 
-    private static async Task<int> FindClassIdAsync(HttpClient client, DateTime date, CancellationToken cancellation)
+    /// <summary>Loads the departments and classes shown by WebUntis' public picker.</summary>
+    public static async Task<TimetableCatalog> LoadCatalogAsync(DateTime date, CancellationToken cancellation)
+    {
+        using var client = await OpenClientAsync(cancellation);
+        return await LoadCatalogAsync(client, date, cancellation);
+    }
+
+    private static async Task<HttpClient> OpenClientAsync(CancellationToken cancellation)
+    {
+        var handler = new HttpClientHandler { CookieContainer = new CookieContainer() };
+        var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(20) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Freedom-Schuluhr/1.1");
+        try
+        {
+            // The start page hands out the school and tenant cookies the public API needs.
+            (await client.GetAsync($"{BaseUrl}/?school={School}", cancellation)).EnsureSuccessStatusCode();
+            return client;
+        }
+        catch
+        {
+            client.Dispose();
+            throw;
+        }
+    }
+
+    private static async Task<TimetableCatalog> LoadCatalogAsync(HttpClient client, DateTime date, CancellationToken cancellation)
     {
         var json = await client.GetStringAsync($"{BaseUrl}/api/public/timetable/weekly/pageconfig?type=1&date={date:yyyy-MM-dd}", cancellation);
+        var catalog = ParseCatalog(json);
+        SaveCatalogCache(catalog);
+        return catalog;
+    }
+
+    internal static TimetableCatalog ParseCatalog(string json)
+    {
         using var doc = JsonDocument.Parse(json);
-        foreach (var element in doc.RootElement.GetProperty("data").GetProperty("elements").EnumerateArray())
+        var data = doc.RootElement.GetProperty("data");
+        var catalog = new TimetableCatalog { FetchedAt = DateTime.Now };
+
+        foreach (var element in data.GetProperty("elements").EnumerateArray())
         {
-            if (string.Equals(element.GetProperty("name").GetString(), ClassName, StringComparison.OrdinalIgnoreCase))
-                return element.GetProperty("id").GetInt32();
+            if (element.TryGetProperty("type", out var type) && type.GetInt32() != 1) continue;
+            var departments = element.TryGetProperty("dids", out var dids) && dids.ValueKind == JsonValueKind.Array
+                ? dids.EnumerateArray().Select(value => value.GetInt32()).Distinct().ToList()
+                : new List<int>();
+            catalog.Classes.Add(new TimetableClass(
+                element.GetProperty("id").GetInt32(),
+                element.GetProperty("name").GetString() ?? "",
+                element.TryGetProperty("longName", out var longName) ? longName.GetString() ?? "" : "",
+                departments));
         }
 
-        throw new InvalidOperationException($"Klasse {ClassName} nicht gefunden.");
+        if (data.TryGetProperty("filters", out var filters) && filters.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var filter in filters.EnumerateArray())
+            {
+                var isDepartment = filter.TryGetProperty("type", out var type) && type.GetInt32() == 10;
+                isDepartment |= filter.TryGetProperty("property", out var property)
+                    && string.Equals(property.GetString(), "departmentId", StringComparison.OrdinalIgnoreCase);
+                if (!isDepartment || !filter.TryGetProperty("elements", out var elements) || elements.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                foreach (var element in elements.EnumerateArray())
+                {
+                    var name = element.TryGetProperty("name", out var shortName) ? shortName.GetString() : null;
+                    if (string.IsNullOrWhiteSpace(name) && element.TryGetProperty("label", out var label)) name = label.GetString();
+                    if (!string.IsNullOrWhiteSpace(name))
+                        catalog.Departments.Add(new TimetableDepartment(element.GetProperty("id").GetInt32(), name));
+                }
+            }
+        }
+
+        catalog.Classes = catalog.Classes
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .DistinctBy(item => item.Id)
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        catalog.Departments = catalog.Departments
+            .DistinctBy(item => item.Id)
+            .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        return catalog;
     }
 
     private static IEnumerable<TimetableEntry> Parse(string json, int classId)

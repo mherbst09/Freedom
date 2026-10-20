@@ -72,6 +72,13 @@ internal sealed partial class GlbViewerPage : Grid
 
     private async Task InitializeAsync(string? browserArguments)
     {
+        if (!WebView2Runtime.IsAvailable(out _))
+        {
+            _viewportHost.Child = RuntimeMissingPanel();
+            LastError = Loc.T("glb.err.runtime");
+            return;
+        }
+
         _bridge = new ViewerBridge();
         _bridge.Message += OnMessage;
         _bridge.FileDropped += path => _ = OpenFileAsync(path);

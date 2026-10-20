@@ -11,6 +11,10 @@ internal sealed class AppSettings
     public string ActivePage { get; set; } = "clock";
     /// <summary>Group for split lessons (E1, ITP2, INSY, SEW): 0 = show both, 1 or 2.</summary>
     public int TimetableGroup { get; set; }
+    /// <summary>WebUntis class shown in the timetable.</summary>
+    public string TimetableClass { get; set; } = WebUntisTimetable.DefaultClassName;
+    /// <summary>Last department opened in the class picker (WebUntis department id).</summary>
+    public int TimetableDepartmentId { get; set; } = 11;
     /// <summary>Look of the app: "war", "hacker" or "anime".</summary>
     public string Theme { get; set; } = "war";
     /// <summary>Coloured mode: palette generated from <see cref="CustomColor"/> (#AARRGGBB).</summary>

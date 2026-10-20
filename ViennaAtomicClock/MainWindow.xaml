@@ -176,6 +176,9 @@
                                             </Grid>
                                             <TextBlock Text="{DynamicResource L.settings.theme}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,16,0,6"/>
                                             <UniformGrid x:Name="ThemeList" Columns="2"/>
+                                             <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,8,0,12"/>
+                                             <Button Style="{StaticResource SecondaryButton}" Height="40" Margin="0,0,0,4" Content="{DynamicResource L.about.open}" Click="AboutButton_Click"
+                                                     AutomationProperties.Name="{DynamicResource L.about.open}"/>
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Grid>
@@ -242,7 +245,7 @@
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <Grid>
                                         <!-- The glow is a blurred copy behind the time, so the time itself stays razor sharp. -->
-                                        <TextBlock x:Name="MainTimeGlow" Typography.NumeralAlignment="Tabular" Text="{Binding Text, ElementName=MainTimeText}" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold" Foreground="{Binding Foreground, ElementName=MainTimeText}" Visibility="Collapsed" IsHitTestVisible="False"/>
+                                        <TextBlock x:Name="MainTimeGlow" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimary}" Visibility="Collapsed" IsHitTestVisible="False"/>
                                         <TextBlock x:Name="MainTimeText" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold"/>
                                     </Grid>
                                     <TextBlock x:Name="MicrosecondsText" Typography.NumeralAlignment="Tabular" Text=".000000" FontFamily="{DynamicResource DisplayFont}" FontSize="24" FontWeight="Medium" Foreground="{DynamicResource AccentBrush}" Opacity="0.7" VerticalAlignment="Bottom" Margin="8,0,0,13"/>
@@ -321,10 +324,51 @@
                         <Grid Margin="4,0,0,0">
                             <StackPanel>
                                 <TextBlock Text="{DynamicResource L.schedule.title}" FontFamily="{DynamicResource StencilFont}" FontSize="24"/>
-                                <TextBlock x:Name="ScheduleSubtitleText" Text="11 Stunden à 50 Minuten" FontSize="13.5" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                    <TextBlock x:Name="ScheduleDayText" Text="Morgen" FontSize="13.5" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock Text=" · " FontSize="13.5" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <Button x:Name="ScheduleClassButton" Height="24" Padding="2,0" Margin="-2,0" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            ToolTip="{DynamicResource L.schedule.class.tip}" Click="ScheduleClassButton_Click">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="ClassHover" Background="Transparent" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ClassHover" Property="Background" Value="{DynamicResource AccentSoft}"/></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <TextBlock x:Name="ScheduleClassText" Text="4BHITS" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
+                                    </Button>
+                                    <TextBlock Text=" · " FontSize="13.5" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ScheduleSourceText" Text="Stundenplan wird geladen …" FontSize="13.5" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
                             </StackPanel>
                             <Button x:Name="GroupButton" Style="{StaticResource ChipButton}" Height="26" Margin="0" HorizontalAlignment="Right" VerticalAlignment="Top"
                                     Content="Gruppe: beide" ToolTip="{DynamicResource L.tip.group}" Click="GroupButton_Click"/>
+
+                            <Popup x:Name="ClassPickerPopup" PlacementTarget="{Binding ElementName=ScheduleClassButton}" Placement="Bottom" StaysOpen="False"
+                                   AllowsTransparency="True" VerticalOffset="5" Opened="Popup_Opened">
+                                <Grid Margin="0,0,16,16" TextOptions.TextFormattingMode="Display" RenderOptions.ClearTypeHint="Enabled">
+                                    <Border Background="{DynamicResource PopupBrush}" CornerRadius="{DynamicResource CardRadius}">
+                                        <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.32"/></Border.Effect>
+                                    </Border>
+                                    <Border Width="430" Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+                                            CornerRadius="{DynamicResource CardRadius}" Padding="16,14">
+                                        <StackPanel>
+                                            <TextBlock Text="{DynamicResource L.schedule.department}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="2,0,0,8"/>
+                                            <WrapPanel x:Name="DepartmentList"/>
+                                            <Border Height="1" Background="{DynamicResource CardBorder}" Margin="0,8,0,12"/>
+                                            <TextBlock Text="{DynamicResource L.schedule.class}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="2,0,0,8"/>
+                                            <TextBlock x:Name="ClassPickerStatusText" Text="{DynamicResource L.schedule.classes.loading}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="2,2,0,6"/>
+                                            <ScrollViewer MaxHeight="290" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                                <WrapPanel x:Name="ClassList"/>
+                                            </ScrollViewer>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                            </Popup>
                         </Grid>
 
                         <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" Focusable="False">

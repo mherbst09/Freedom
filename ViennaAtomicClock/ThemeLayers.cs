@@ -14,6 +14,7 @@ internal abstract class AnimatedLayer : FrameworkElement
 
     protected AnimatedLayer(double framesPerSecond)
     {
+        TargetFramesPerSecond = framesPerSecond;
         IsHitTestVisible = false;
         _timer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromSeconds(1 / framesPerSecond) };
         _timer.Tick += (_, _) =>
@@ -29,6 +30,8 @@ internal abstract class AnimatedLayer : FrameworkElement
         };
         Unloaded += (_, _) => _timer.Stop();
     }
+
+    internal double TargetFramesPerSecond { get; }
 
     /// <summary>Corner radius of the window shell, so nothing spills past rounded corners.</summary>
     public double Radius { get; set; }

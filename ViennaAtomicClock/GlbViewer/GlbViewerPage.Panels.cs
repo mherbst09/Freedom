@@ -259,6 +259,15 @@ internal sealed partial class GlbViewerPage
         text.TextTrimming = TextTrimming.None;
         text.Margin = new Thickness(0, 8, 0, 0);
         stack.Children.Add(text);
+        var install = Ui.Button("ActionButton", Loc.T("glb.runtime.install"), (_, _) =>
+        {
+            if (!WebView2Runtime.OpenDownloadPage())
+                ShowStatus(Loc.T("glb.err.runtimeOpen"), warning: true);
+        }, Loc.T("glb.runtime.installHint"));
+        install.Margin = new Thickness(0, 18, 0, 0);
+        install.HorizontalAlignment = HorizontalAlignment.Left;
+        System.Windows.Automation.AutomationProperties.SetName(install, Loc.T("glb.runtime.install"));
+        stack.Children.Add(install);
         return stack;
     }
 

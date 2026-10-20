@@ -8,7 +8,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Freedom</AssemblyName>
     <RootNamespace>ViennaAtomicClock</RootNamespace>
-    <Version>1.0.0</Version>
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <Version>$(VersionPrefix)</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <BuildDateUtc Condition="'$(BuildDateUtc)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))</BuildDateUtc>
+    <SourceRevisionId Condition="'$(GitCommit)' != ''">$(GitCommit)</SourceRevisionId>
     <Authors>Freedom</Authors>
     <Product>Freedom</Product>
     <Description>Präzise NTP-synchronisierte Uhr für die Zeitzone Wien.</Description>
@@ -25,9 +30,11 @@
   <ItemGroup>
     <Resource Include="app.ico" />
     <InternalsVisibleTo Include="Freedom.Tests" />
+    <AssemblyMetadata Include="BuildDateUtc" Value="$(BuildDateUtc)" />
+    <AssemblyMetadata Include="GitCommit" Value="$(GitCommit)" Condition="'$(GitCommit)' != ''" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2849.39" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
   <ItemGroup>
     <!-- GLB viewer: HTML, CSS, JS and the local Three.js copy are embedded, so the single-file EXE works offline. -->

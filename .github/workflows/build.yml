@@ -1,0 +1,59 @@
+name: Build, test and publish Freedom
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore Freedom.sln
+
+      - name: Build Release
+        run: dotnet build Freedom.sln --configuration Release --no-restore -warnaserror -p:GitCommit=${{ github.sha }}
+
+      - name: Run tests
+        run: dotnet test Freedom.sln --configuration Release --no-build --logger "trx;LogFileName=Freedom.Tests.trx" --results-directory TestResults
+
+      - name: Publish self-contained Windows executable
+        run: dotnet publish ViennaAtomicClock/ViennaAtomicClock.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output Release -p:GitCommit=${{ github.sha }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Freedom-test-results
+          path: TestResults/*.trx
+          if-no-files-found: error
+
+      - name: Upload Freedom.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Freedom-${{ github.sha }}-win-x64
+          path: Release/Freedom.exe
+          if-no-files-found: error
+          retention-days: 30

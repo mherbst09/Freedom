@@ -46,6 +46,12 @@ public partial class MainWindow : Window
     private bool _forceTimetable = true;
     private bool _timetableOffline;
     private int _timetableVersion;
+    private TimetableCatalog? _timetableCatalog;
+    private bool _classCatalogLoading;
+    private CancellationTokenSource? _classCatalogCancellation;
+    private CancellationTokenSource? _classSelectionCancellation;
+    private int _selectedTimetableDepartmentId;
+    private long _lastRenderedClockSecond = long.MinValue;
     private long _lastSchoolSecond = -1;
     private string _scheduleKey = "";
 
@@ -54,6 +60,9 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _settings = AppSettings.Load();
+        if (string.IsNullOrWhiteSpace(_settings.TimetableClass))
+            _settings.TimetableClass = WebUntisTimetable.DefaultClassName;
+        _selectedTimetableDepartmentId = _settings.TimetableDepartmentId;
         _caffeineStore = CaffeineStore.Load();
         Topmost = _settings.AlwaysOnTop;
         PinButton.Foreground = Topmost ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("TextSecondary");
@@ -89,7 +98,8 @@ public partial class MainWindow : Window
         DailyLimitTextBox.Text = _settings.CaffeineDailyLimitMg.ToString(_culture);
         RefreshProducts();
         RefreshCaffeineSummary();
-        _timetable = WebUntisTimetable.LoadCache();
+        _timetable = WebUntisTimetable.LoadCache(_settings.TimetableClass);
+        _timetableCatalog = WebUntisTimetable.LoadCatalogCache();
         SchoolSchedule.DayLessons = RealLessonsOn;
         UpdateGroupButton();
         BuildScheduleList();
@@ -121,6 +131,8 @@ public partial class MainWindow : Window
             ClickerView.Shutdown();
             ViewerView.Shutdown();
             _syncCancellation?.Cancel();
+            _classCatalogCancellation?.Cancel();
+            _classSelectionCancellation?.Cancel();
             _fireworks?.Close();
             _gloom?.Close();
             _settings.DarkMode = App.IsDark;
@@ -228,17 +240,27 @@ public partial class MainWindow : Window
         var shown = TimeZoneInfo.ConvertTime(utc, _displayZone);
         var microseconds = (shown.Ticks % TimeSpan.TicksPerSecond) / 10;
 
-        MainTimeText.Text = shown.ToString("HH:mm:ss", _culture);
         MicrosecondsText.Text = $".{microseconds:000000}";
-        DateText.Text = shown.ToString("D", _culture);
         SecondProgress.ScaleX = (shown.Second + shown.Millisecond / 1000.0) / 60.0;
 
-        var offset = _displayZone.GetUtcOffset(shown.DateTime);
-        UtcOffsetBadge.Text = $"UTC{(offset < TimeSpan.Zero ? "−" : "+")}{offset.Duration():hh\\:mm}";
-        var dst = _displayZone.IsDaylightSavingTime(shown.DateTime);
-        DstText.Text = _displayZone == _viennaZone
-            ? Loc.T(dst ? "clock.dst" : "clock.std")
-            : dst ? _displayZone.DaylightName : _displayZone.StandardName;
+        // The blurred glow is comparatively expensive. Updating its text 60 times per second,
+        // even though HH:mm:ss did not change, made it visibly twitch over animated themes.
+        var displayedSecond = shown.Ticks / TimeSpan.TicksPerSecond;
+        if (displayedSecond != _lastRenderedClockSecond)
+        {
+            _lastRenderedClockSecond = displayedSecond;
+            var timeText = shown.ToString("HH:mm:ss", _culture);
+            MainTimeText.Text = timeText;
+            MainTimeGlow.Text = timeText;
+            DateText.Text = shown.ToString("D", _culture);
+
+            var offset = _displayZone.GetUtcOffset(shown.DateTime);
+            UtcOffsetBadge.Text = $"UTC{(offset < TimeSpan.Zero ? "−" : "+")}{offset.Duration():hh\\:mm}";
+            var dst = _displayZone.IsDaylightSavingTime(shown.DateTime);
+            DstText.Text = _displayZone == _viennaZone
+                ? Loc.T(dst ? "clock.dst" : "clock.std")
+                : dst ? _displayZone.DaylightName : _displayZone.StandardName;
+        }
 
         CheckFireworks(vienna.DateTime);
         CheckGloom(vienna.DateTime);
@@ -470,9 +492,11 @@ public partial class MainWindow : Window
             : day == now.Date.AddDays(1) ? Loc.T("tomorrow") : $"{day.ToString("dddd", _culture)}, {day.ToString("M", _culture)}";
         var covered = _timetable?.Covers(day) == true;
         var source = covered
-            ? $"{WebUntisTimetable.ClassName} · {Loc.F("schedule.stand", _timetable!.FetchedAt.ToString("HH\\:mm"))}{(_timetableOffline ? Loc.T("schedule.offline") : "")}"
+            ? $"{Loc.F("schedule.stand", _timetable!.FetchedAt.ToString("HH\\:mm"))}{(_timetableOffline ? Loc.T("schedule.offline") : "")}"
             : Loc.T(_timetableLoading ? "schedule.loading" : "schedule.fixed");
-        ScheduleSubtitleText.Text = $"{dayName} · {source}";
+        ScheduleDayText.Text = dayName;
+        ScheduleClassText.Text = _settings.TimetableClass;
+        ScheduleSourceText.Text = source;
 
         var entries = covered ? _timetable!.On(day, _settings.TimetableGroup) : new List<TimetableEntry>();
         var isToday = day == now.Date;
@@ -572,11 +596,17 @@ public partial class MainWindow : Window
         if (_timetableLoading || (!force && DateTime.Now - _lastTimetableAttempt < TimeSpan.FromMinutes(10))) return;
         _timetableLoading = true;
         _lastTimetableAttempt = DateTime.Now;
+        var requestedClass = _settings.TimetableClass;
         try
         {
             var today = TimeZoneInfo.ConvertTime(_clock.UtcNow, _viennaZone).DateTime;
-            _timetable = await WebUntisTimetable.FetchAsync(today, cancellation);
-            _timetableOffline = false;
+            var timetable = await WebUntisTimetable.FetchAsync(today, requestedClass, cancellation);
+            if (string.Equals(requestedClass, _settings.TimetableClass, StringComparison.OrdinalIgnoreCase))
+            {
+                _timetable = timetable;
+                _timetableOffline = false;
+                _timetableCatalog = WebUntisTimetable.LoadCatalogCache() ?? _timetableCatalog;
+            }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -585,7 +615,8 @@ public partial class MainWindow : Window
         catch
         {
             // Offline or WebUntis unreachable: keep the last saved timetable (or the fixed times).
-            _timetableOffline = true;
+            if (string.Equals(requestedClass, _settings.TimetableClass, StringComparison.OrdinalIgnoreCase))
+                _timetableOffline = true;
         }
         finally
         {
@@ -605,6 +636,156 @@ public partial class MainWindow : Window
 
     private void UpdateGroupButton() =>
         GroupButton.Content = _settings.TimetableGroup == 0 ? Loc.T("group.both") : Loc.F("group.n", _settings.TimetableGroup);
+
+    private async void ScheduleClassButton_Click(object sender, RoutedEventArgs e)
+    {
+        ClassPickerPopup.IsOpen = true;
+        if (_timetableCatalog is not null) BuildClassPicker();
+        await EnsureClassCatalogAsync();
+    }
+
+    private async Task EnsureClassCatalogAsync()
+    {
+        if (_classCatalogLoading) return;
+        if (_timetableCatalog is not null && DateTime.Now - _timetableCatalog.FetchedAt < TimeSpan.FromHours(12))
+        {
+            BuildClassPicker();
+            return;
+        }
+
+        _classCatalogLoading = true;
+        ClassPickerStatusText.Text = Loc.T("schedule.classes.loading");
+        ClassPickerStatusText.Visibility = Visibility.Visible;
+        _classCatalogCancellation?.Cancel();
+        _classCatalogCancellation?.Dispose();
+        var catalogCancellation = new CancellationTokenSource();
+        _classCatalogCancellation = catalogCancellation;
+        try
+        {
+            var today = TimeZoneInfo.ConvertTime(_clock.UtcNow, _viennaZone).DateTime;
+            _timetableCatalog = await WebUntisTimetable.LoadCatalogAsync(today, catalogCancellation.Token);
+            BuildClassPicker();
+        }
+        catch (OperationCanceledException) when (catalogCancellation.IsCancellationRequested)
+        {
+            // A closed window or a newer request owns the picker now.
+        }
+        catch
+        {
+            if (_timetableCatalog is null)
+            {
+                ClassPickerStatusText.Text = Loc.T("schedule.classes.error");
+                ClassPickerStatusText.Visibility = Visibility.Visible;
+            }
+        }
+        finally
+        {
+            _classCatalogLoading = false;
+        }
+    }
+
+    private void BuildClassPicker()
+    {
+        if (_timetableCatalog is not { } catalog) return;
+
+        var availableDepartments = catalog.Departments
+            .Where(department => catalog.Classes.Any(item => item.DepartmentIds.Contains(department.Id)))
+            .ToList();
+        var selectedClass = catalog.Classes.FirstOrDefault(item =>
+            string.Equals(item.Name, _settings.TimetableClass, StringComparison.OrdinalIgnoreCase));
+        if (!availableDepartments.Any(item => item.Id == _selectedTimetableDepartmentId))
+        {
+            var classDepartment = selectedClass?.DepartmentIds.FirstOrDefault(id => availableDepartments.Any(item => item.Id == id)) ?? 0;
+            _selectedTimetableDepartmentId = classDepartment != 0 ? classDepartment : availableDepartments.FirstOrDefault()?.Id ?? 0;
+        }
+
+        DepartmentList.Children.Clear();
+        foreach (var department in availableDepartments)
+        {
+            var chip = PickerChip(department.Name, department.Name, department.Id == _selectedTimetableDepartmentId);
+            var picked = department.Id;
+            chip.Click += (_, _) => SelectTimetableDepartment(picked);
+            DepartmentList.Children.Add(chip);
+        }
+
+        BuildClassList(catalog);
+    }
+
+    private void SelectTimetableDepartment(int departmentId)
+    {
+        _selectedTimetableDepartmentId = departmentId;
+        _settings.TimetableDepartmentId = departmentId;
+        _settings.Save();
+        BuildClassPicker();
+    }
+
+    private void BuildClassList(TimetableCatalog catalog)
+    {
+        ClassList.Children.Clear();
+        foreach (var item in catalog.Classes.Where(item => item.DepartmentIds.Contains(_selectedTimetableDepartmentId)))
+        {
+            var tooltip = string.IsNullOrWhiteSpace(item.LongName) || item.LongName == item.Name ? item.Name : item.LongName;
+            var chip = PickerChip(item.Name, tooltip,
+                string.Equals(item.Name, _settings.TimetableClass, StringComparison.OrdinalIgnoreCase));
+            var picked = item;
+            chip.Click += async (_, _) => await SelectTimetableClassAsync(picked);
+            ClassList.Children.Add(chip);
+        }
+
+        ClassPickerStatusText.Visibility = ClassList.Children.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (ClassList.Children.Count == 0) ClassPickerStatusText.Text = Loc.T("schedule.classes.error");
+    }
+
+    private Button PickerChip(string text, string tooltip, bool selected)
+    {
+        var chip = new Button
+        {
+            Content = text,
+            ToolTip = tooltip,
+            Height = 32,
+            Margin = new Thickness(0, 0, 7, 7),
+            Padding = new Thickness(11, 0, 11, 0)
+        };
+        chip.SetResourceReference(StyleProperty, "ChipButton");
+        SetChip(chip, selected);
+        return chip;
+    }
+
+    private async Task SelectTimetableClassAsync(TimetableClass selectedClass)
+    {
+        ClassPickerPopup.IsOpen = false;
+        if (string.Equals(selectedClass.Name, _settings.TimetableClass, StringComparison.OrdinalIgnoreCase)) return;
+
+        _settings.TimetableClass = selectedClass.Name;
+        _settings.TimetableDepartmentId = _selectedTimetableDepartmentId;
+        _settings.Save();
+        _timetable = WebUntisTimetable.LoadCache(selectedClass.Name);
+        _timetableOffline = _timetable is not null;
+        _lastTimetableAttempt = DateTime.MinValue;
+        _scheduleKey = "";
+        _lastSchoolSecond = -1;
+        _timetableVersion++;
+        RenderTime();
+
+        _classSelectionCancellation?.Cancel();
+        _classSelectionCancellation?.Dispose();
+        _classSelectionCancellation = new CancellationTokenSource();
+        var cancellation = _classSelectionCancellation.Token;
+        try
+        {
+            // A start-up refresh may still be finishing for the old class.
+            while (_timetableLoading)
+                await Task.Delay(50, cancellation);
+            await RefreshTimetableAsync(force: true, cancellation);
+            _scheduleKey = "";
+            _lastSchoolSecond = -1;
+            RenderTime();
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Another class was selected or the app is closing.
+        }
+    }
 
     private async Task SynchronizeAsync()
     {
@@ -732,6 +913,7 @@ public partial class MainWindow : Window
         _settings.TimeZoneId = zone == _viennaZone ? "" : zone.Id;
         _settings.Save();
         UpdateClockCity();
+        _lastRenderedClockSecond = long.MinValue;
         RenderTime();
         BuildTimeZoneList();
     }
@@ -830,6 +1012,7 @@ public partial class MainWindow : Window
         EagleLayer.Visibility = theme == Themes.Eagle ? Visibility.Visible : Visibility.Collapsed;
         MysticLayer.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
         MysticTop.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
+        if (theme == Themes.Mystic) MysticLayer.RefreshTheme();
 
         var accent = ((SolidColorBrush)FindResource("AccentBrush")).Color;
         // Glows sit on a blurred copy behind the text; an effect on the text itself would make it soft.
@@ -1058,6 +1241,7 @@ public partial class MainWindow : Window
         BuildScheduleList();
         RefreshProducts();
         RefreshCaffeineSummary();
+        _lastRenderedClockSecond = long.MinValue;
         _scheduleKey = "";
         _lastSchoolSecond = -1;
         Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), _ => "Freedom" };
@@ -1077,6 +1261,12 @@ public partial class MainWindow : Window
     }
 
     private void SettingsClose_Click(object sender, RoutedEventArgs e) => SettingsPopup.IsOpen = false;
+
+    private void AboutButton_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsPopup.IsOpen = false;
+        new AboutWindow { Owner = this }.ShowDialog();
+    }
 
     private void SettingsResize_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
     {
