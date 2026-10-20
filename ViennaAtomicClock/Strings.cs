@@ -263,6 +263,17 @@ internal static class Strings
         ["color.alpha"] = new[] { "Alpha", "Alpha", "Alfa", "Alfa", "Альфа", "透明度", "アルファ" },
         ["color.pipette"] = new[] { "Pipette: Farbe vom Bildschirm aufnehmen (Esc bricht ab)", "Eyedropper: pick a colour from the screen (Esc cancels)", "Cuentagotas: toma un color de la pantalla (Esc cancela)", "Conta-gotas: escolhe uma cor do ecrã (Esc cancela)", "Пипетка: взять цвет с экрана (Esc — отмена)", "取色器：从屏幕取色（Esc 取消）", "スポイト：画面から色を取得（Escで中止）" },
 
+        // Lesson-start gloom and animation settings
+        ["gloom.title"] = new[] { "DIE STUNDE BEGINNT …", "THE LESSON BEGINS …", "EMPIEZA LA CLASE …", "A AULA COMEÇA …", "УРОК НАЧИНАЕТСЯ …", "上课了……", "授業が始まる……" },
+        ["gloom.sub"] = new[] { "Ruhe in Frieden, Pause. Nur noch 50 Minuten.", "Rest in peace, break. Only 50 minutes to go.", "Descansa en paz, recreo. Solo 50 minutos.", "Descansa em paz, intervalo. Só mais 50 minutos.", "Покойся с миром, перемена. Всего 50 минут.", "课间，安息吧。还有 50 分钟。", "休み時間よ、安らかに。あと50分。" },
+        ["gloom.rip"] = new[] { "PAUSE", "BREAK", "RECREO", "INTERVALO", "ПЕРЕМЕНА", "课间", "休み時間" },
+        ["settings.animations"] = new[] { "Animationen", "Animations", "Animaciones", "Animações", "Анимации", "动画", "アニメーション" },
+        ["anim.fireworks"] = new[] { "Feuerwerk am Stundenende", "Fireworks when a lesson ends", "Fuegos artificiales al terminar la clase", "Fogo de artifício no fim da aula", "Фейерверк в конце урока", "下课时放烟花", "授業終了時の花火" },
+        ["anim.gloom"] = new[] { "Trauer zu Stundenbeginn", "Gloom when a lesson starts", "Tristeza al empezar la clase", "Tristeza no início da aula", "Грусть в начале урока", "上课时的悲伤动画", "授業開始時の悲しみ" },
+        ["anim.on"] = new[] { "✓ An", "✓ On", "✓ Sí", "✓ Ligado", "✓ Вкл.", "✓ 开", "✓ オン" },
+        ["anim.off"] = new[] { "○ Aus", "○ Off", "○ No", "○ Desligado", "○ Выкл.", "○ 关", "○ オフ" },
+        ["anim.test"] = new[] { "▶ Testen", "▶ Test", "▶ Probar", "▶ Testar", "▶ Тест", "▶ 测试", "▶ テスト" },
+
         // Fireworks and anime
         ["fireworks.title"] = new[] { "STUNDE VORBEI!", "LESSON OVER!", "¡CLASE TERMINADA!", "AULA ACABOU!", "УРОК ОКОНЧЕН!", "下课啦！", "授業終わり！" },
         ["fireworks.sub"] = new[] { "★  MEGA BIG WIN  ★", "★  MEGA BIG WIN  ★", "★  MEGA GRAN PREMIO  ★", "★  MEGA GRANDE VITÓRIA  ★", "★  МЕГА ВЫИГРЫШ  ★", "★  超级大奖  ★", "★  メガビッグウィン  ★" },

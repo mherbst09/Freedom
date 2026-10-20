@@ -142,6 +142,19 @@
                                             <Border x:Name="ColorPickerHost" Margin="0,10,0,0" Padding="12" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}" CornerRadius="{DynamicResource CardRadius}" Visibility="Collapsed">
                                                 <local:ColorPicker x:Name="ThemeColorPicker"/>
                                             </Border>
+                                            <TextBlock Text="{DynamicResource L.settings.animations}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,16,0,6"/>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource L.anim.fireworks}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="2,0,8,0"/>
+                                                <Button x:Name="FireworksToggle" Grid.Column="1" Style="{StaticResource ChipButton}" Height="34" Padding="14,0" Click="FireworksToggle_Click"/>
+                                                <Button Grid.Column="2" Style="{StaticResource ChipButton}" Height="34" Margin="0" Padding="14,0" Content="{DynamicResource L.anim.test}" Click="FireworksButton_Click"/>
+                                            </Grid>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{DynamicResource L.anim.gloom}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="2,0,8,0"/>
+                                                <Button x:Name="GloomToggle" Grid.Column="1" Style="{StaticResource ChipButton}" Height="34" Padding="14,0" Click="GloomToggle_Click"/>
+                                                <Button Grid.Column="2" Style="{StaticResource ChipButton}" Height="34" Margin="0" Padding="14,0" Content="{DynamicResource L.anim.test}" Click="GloomTest_Click"/>
+                                            </Grid>
                                             <TextBlock Text="{DynamicResource L.settings.theme}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,16,0,6"/>
                                             <UniformGrid x:Name="ThemeList" Columns="2"/>
                                         </StackPanel>

@@ -18,6 +18,8 @@ internal sealed class AppSettings
     public string CustomColor { get; set; } = "#FF3D7BFF";
     /// <summary>UI language code (de, en, es, pt, ru, zh, ja).</summary>
     public string Language { get; set; } = "de";
+    public bool FireworksEnabled { get; set; } = true;
+    public bool GloomEnabled { get; set; } = true;
     public double SettingsWidth { get; set; } = 400;
     public double SettingsHeight { get; set; } = 640;
 

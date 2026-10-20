@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private int _lastTrackerRefreshMinute = -1;
     private DateTime _lastFireworkSlot = DateTime.MinValue;
     private FireworksWindow? _fireworks;
+    private GloomWindow? _gloom;
+    private DateTime _lastGloomSlot = DateTime.MinValue;
     private readonly List<(Lesson Lesson, Border Row, TextBlock Status, TextBlock Subject)> _scheduleRows = new();
     private TimetableData? _timetable;
     private DateTime _lastTimetableAttempt = DateTime.MinValue;
@@ -105,6 +107,7 @@ public partial class MainWindow : Window
         {
             _syncCancellation?.Cancel();
             _fireworks?.Close();
+            _gloom?.Close();
             _settings.DarkMode = App.IsDark;
             _settings.AlwaysOnTop = _focusMode ? _previousTopmost : Topmost;
             _settings.ActivePage = _page;
@@ -216,6 +219,7 @@ public partial class MainWindow : Window
         DstText.Text = Loc.T(_viennaZone.IsDaylightSavingTime(vienna.DateTime) ? "clock.dst" : "clock.std");
 
         CheckFireworks(vienna.DateTime);
+        CheckGloom(vienna.DateTime);
 
         var second = vienna.Ticks / TimeSpan.TicksPerSecond;
         if (second != _lastSchoolSecond)
@@ -240,7 +244,48 @@ public partial class MainWindow : Window
         if (slot == _lastFireworkSlot || !SchoolSchedule.IsLessonEnd(slot)) return;
 
         _lastFireworkSlot = slot;
-        LaunchFireworks();
+        if (_settings.FireworksEnabled) LaunchFireworks();
+    }
+
+    private void CheckGloom(DateTime vienna)
+    {
+        if (vienna.Second >= 5) return;
+        var slot = new DateTime(vienna.Year, vienna.Month, vienna.Day, vienna.Hour, vienna.Minute, 0);
+        if (slot == _lastGloomSlot || !SchoolSchedule.IsLessonStart(slot)) return;
+        _lastGloomSlot = slot;
+        if (_settings.GloomEnabled) LaunchGloom();
+    }
+
+    private void LaunchGloom()
+    {
+        if (_gloom is not null) return;
+        _gloom = new GloomWindow(FireworksWindow.MonitorArea(this));
+        _gloom.Closed += (_, _) => _gloom = null;
+        _gloom.Show();
+    }
+
+    private void GloomTest_Click(object sender, RoutedEventArgs e) => LaunchGloom();
+
+    private void FireworksToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.FireworksEnabled = !_settings.FireworksEnabled;
+        _settings.Save();
+        UpdateAnimationToggles();
+    }
+
+    private void GloomToggle_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.GloomEnabled = !_settings.GloomEnabled;
+        _settings.Save();
+        UpdateAnimationToggles();
+    }
+
+    private void UpdateAnimationToggles()
+    {
+        FireworksToggle.Content = Loc.T(_settings.FireworksEnabled ? "anim.on" : "anim.off");
+        GloomToggle.Content = Loc.T(_settings.GloomEnabled ? "anim.on" : "anim.off");
+        SetChip(FireworksToggle, _settings.FireworksEnabled);
+        SetChip(GloomToggle, _settings.GloomEnabled);
     }
 
     private void LaunchFireworks()
@@ -787,6 +832,7 @@ public partial class MainWindow : Window
         ColorPickerHost.Visibility = colored ? Visibility.Visible : Visibility.Collapsed;
         if (colored && !_pickingColor) ThemeColorPicker.Color = App.CustomColor!.Value;
 
+        UpdateAnimationToggles();
         LanguageList.Children.Clear();
         foreach (var (code, name, _) in Loc.Languages)
         {
@@ -979,6 +1025,11 @@ public partial class MainWindow : Window
         else if (e.Key == Key.F9)
         {
             LaunchFireworks();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.F8)
+        {
+            LaunchGloom();
             e.Handled = true;
         }
         else if (e.Key == Key.Escape && _focusMode)

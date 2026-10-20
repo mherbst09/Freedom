@@ -44,6 +44,9 @@ internal static class SchoolSchedule
     public static bool IsLessonEnd(DateTime minute) =>
         LessonsOn(minute).Any(lesson => lesson.End == minute.TimeOfDay);
 
+    public static bool IsLessonStart(DateTime minute) =>
+        LessonsOn(minute).Any(lesson => lesson.Start == minute.TimeOfDay);
+
     public static SchoolState GetState(DateTime now)
     {
         var today = now.Date;
