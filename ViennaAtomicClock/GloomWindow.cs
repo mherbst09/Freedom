@@ -23,6 +23,8 @@ internal sealed class GloomWindow : Window
     private SoundPlayer? _sound;
     private MemoryStream? _soundStream;
     private double _lastFrame;
+    private double _nextFrame;
+    private int _slowFrames;
     private bool _running, _closed;
 
     public GloomWindow(Rect focusArea)
@@ -37,14 +39,17 @@ internal sealed class GloomWindow : Window
         Focusable = false;
         IsHitTestVisible = false;
         Title = "Gloom";
-        Left = SystemParameters.VirtualScreenLeft;
-        Top = SystemParameters.VirtualScreenTop;
-        Width = SystemParameters.VirtualScreenWidth;
-        Height = SystemParameters.VirtualScreenHeight;
+        var target = focusArea;
+        if (target.IsEmpty || target.Width < 200 || target.Height < 200)
+            target = new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+        Left = target.X;
+        Top = target.Y;
+        Width = target.Width;
+        Height = target.Height;
 
-        var focus = new Rect(focusArea.X - Left, focusArea.Y - Top, focusArea.Width, focusArea.Height);
-        focus.Intersect(new Rect(0, 0, Width, Height));
-        if (focus.IsEmpty || focus.Width < 200 || focus.Height < 200) focus = new Rect(0, 0, Width, Height);
+        // Layered WPF windows are software-composited. Restricting the surface to the active monitor avoids
+        // repainting the entire virtual desktop on every frame.
+        var focus = new Rect(0, 0, Width, Height);
 
         var plan = GloomPlan.Create(focus, Random.Shared);
         _canvas = new GloomCanvas(plan, Width, Height);
@@ -90,7 +95,20 @@ internal sealed class GloomWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         var now = _stopwatch.Elapsed.TotalSeconds;
-        var dt = Math.Clamp(now - _lastFrame, 0, 0.05);
+        const double frameInterval = 1.0 / 60;
+        if (now + 0.0005 < _nextFrame) return;
+        _nextFrame += frameInterval;
+        if (_nextFrame < now) _nextFrame = now + frameInterval;
+        var elapsed = now - _lastFrame;
+        if (_lastFrame > 0 && elapsed > 1.0 / 45)
+        {
+            if (++_slowFrames >= 3) { _canvas.ReduceLoad(); _slowFrames = 0; }
+        }
+        else
+        {
+            _slowFrames = 0;
+        }
+        var dt = Math.Clamp(elapsed, 0, 0.05);
         _lastFrame = now;
         _canvas.Advance(now, dt);
         if (now >= ShowSeconds + 0.6) Close();
@@ -122,10 +140,19 @@ internal sealed record GloomPlan(Rect Focus, double[] Lightning, double[] Crows,
 
 internal sealed class GloomCanvas : FrameworkElement
 {
-    private sealed class RainDrop { public double X, Y, Speed, Length; }
-    private sealed class Leaf { public double X, Y, Vy, Sway, Phase, Angle, Spin, Size; public Color Color; }
-    private sealed class Splash { public double X, Y, Age; }
+    private sealed class RainDrop { public double X, Y, Speed, Length, Depth, WindPhase, GroundOffset; }
+    private sealed class Leaf { public double X, Y, Vy, Sway, Phase, Angle, Spin, Size, Flutter; public Color Color; }
+    private sealed class Splash { public double X, Y, Age, Spread; }
     private sealed class Drip { public double X, Y, Vy; }
+
+    private static readonly Geometry CrowWingGeometry = CreateCrowWingGeometry();
+    private static readonly Geometry CrowTailGeometry = CreatePolygon(new Point(0.32, -0.03), new Point(0.82, -0.2), new Point(0.65, 0.02), new Point(0.86, 0.13), new Point(0.31, 0.14));
+    private static readonly Geometry CrowBeakGeometry = CreatePolygon(new Point(-0.47, -0.11), new Point(-0.72, -0.04), new Point(-0.48, 0.015));
+    private static readonly Geometry CandleFlameGeometry = CreateCandleFlameGeometry();
+    private static readonly Brush VignetteBrush = CreateVignetteBrush();
+    private static readonly Brush StoneBrush = CreateGradientBrush(Color.FromRgb(110, 112, 118), Color.FromRgb(60, 62, 68), 90);
+    private static readonly Brush CandleBrush = CreateGradientBrush(Color.FromRgb(170, 162, 143), Color.FromRgb(239, 232, 209), 0);
+    private static readonly Brush TitleBrush = CreateGradientBrush(Color.FromRgb(200, 204, 214), Color.FromRgb(90, 94, 104), 90);
 
     private readonly GloomPlan _plan;
     private readonly double _width, _height;
@@ -137,8 +164,10 @@ internal sealed class GloomCanvas : FrameworkElement
     private readonly List<Drip> _drips = new();
     private readonly (double X, double Y, double R, double Speed)[] _clouds;
     private readonly Dictionary<(Color, int), Brush> _brushes = new();
+    private readonly Geometry _leafGeometry = CreateLeafGeometry();
     private Geometry? _title, _subtitle;
-    private Point[][]? _bolt;
+    private Geometry? _graveStone, _graveRip, _graveBreak, _graveCross;
+    private Geometry[]? _bolt;
     private double _boltAt = -10, _lastWash = -10, _washAt = -10;
     private int _nextStrike;
     private double _time;
@@ -155,19 +184,35 @@ internal sealed class GloomCanvas : FrameworkElement
             _focus.Y + _focus.Height * (0.02 + _random.NextDouble() * 0.12),
             _focus.Width * (0.12 + _random.NextDouble() * 0.1),
             6 + _random.NextDouble() * 10)).ToArray();
-        for (var i = 0; i < 420; i++) _rain.Add(NewDrop(anywhere: true));
+        var rainCount = width * height > 3_000_000 ? 230 : 300;
+        for (var i = 0; i < rainCount; i++) _rain.Add(NewDrop(anywhere: true));
         for (var i = 0; i < 26; i++) _leaves.Add(NewLeaf(anywhere: true));
     }
 
     private double Ground => _focus.Bottom - _focus.Height * 0.06;
 
-    private RainDrop NewDrop(bool anywhere) => new()
+    public void ReduceLoad()
     {
-        X = _random.NextDouble() * (_width + 300) - 150,
-        Y = anywhere ? _random.NextDouble() * _height : -40 - _random.NextDouble() * 200,
-        Speed = 900 + _random.NextDouble() * 600,
-        Length = 14 + _random.NextDouble() * 22
-    };
+        var rainTarget = Math.Max(140, (int)(_rain.Count * 0.75));
+        if (_rain.Count > rainTarget) _rain.RemoveRange(0, _rain.Count - rainTarget);
+        if (_leaves.Count > 18) _leaves.RemoveRange(0, _leaves.Count - 18);
+        if (_splashes.Count > 24) _splashes.RemoveRange(0, _splashes.Count - 24);
+    }
+
+    private RainDrop NewDrop(bool anywhere)
+    {
+        var depth = 0.35 + _random.NextDouble() * 0.65;
+        return new RainDrop
+        {
+            X = _random.NextDouble() * (_width + 300) - 150,
+            Y = anywhere ? _random.NextDouble() * _height : -40 - _random.NextDouble() * 200,
+            Speed = 650 + depth * 900,
+            Length = 9 + depth * 27,
+            Depth = depth,
+            WindPhase = _random.NextDouble() * Math.PI * 2,
+            GroundOffset = _random.NextDouble() * 18
+        };
+    }
 
     private Leaf NewLeaf(bool anywhere)
     {
@@ -177,6 +222,7 @@ internal sealed class GloomCanvas : FrameworkElement
             X = _focus.X + _random.NextDouble() * _focus.Width, Y = anywhere ? _focus.Y + _random.NextDouble() * _focus.Height : _focus.Y - 30,
             Vy = 40 + _random.NextDouble() * 50, Sway = 30 + _random.NextDouble() * 40, Phase = _random.NextDouble() * 6,
             Angle = _random.NextDouble() * 360, Spin = (_random.NextDouble() - 0.5) * 160, Size = 7 + _random.NextDouble() * 7,
+            Flutter = 2.5 + _random.NextDouble() * 4,
             Color = colors[_random.Next(colors.Length)]
         };
     }
@@ -185,38 +231,10 @@ internal sealed class GloomCanvas : FrameworkElement
     {
         _time = time;
         var raining = time < GloomWindow.ShowSeconds - 0.8;
-        for (var i = _rain.Count - 1; i >= 0; i--)
-        {
-            var d = _rain[i];
-            d.Y += d.Speed * dt;
-            d.X -= d.Speed * 0.18 * dt;
-            if (d.Y > Ground + _random.NextDouble() * 20 && d.X > _focus.X && d.X < _focus.Right)
-            {
-                if (_random.NextDouble() < 0.25) _splashes.Add(new Splash { X = d.X, Y = d.Y });
-                if (raining) _rain[i] = NewDrop(false); else _rain.RemoveAt(i);
-            }
-            else if (d.Y > _height + 40) { if (raining) _rain[i] = NewDrop(false); else _rain.RemoveAt(i); }
-        }
-        foreach (var s in _splashes) s.Age += dt;
-        _splashes.RemoveAll(s => s.Age > 0.35);
-
-        foreach (var l in _leaves)
-        {
-            l.Y += l.Vy * dt;
-            l.X += Math.Sin(time * 1.4 + l.Phase) * l.Sway * dt - 20 * dt;
-            l.Angle += l.Spin * dt;
-        }
-        for (var i = 0; i < _leaves.Count; i++)
-            if (_leaves[i].Y > Ground) _leaves[i] = NewLeaf(false);
-
-        // Black ink drips from the headline.
-        if (time > 1.5 && time < GloomWindow.ShowSeconds - 1 && _random.NextDouble() < dt * 6 && _title is not null)
-        {
-            var b = _title.Bounds;
-            _drips.Add(new Drip { X = b.X + _random.NextDouble() * b.Width, Y = b.Bottom - 4, Vy = 10 });
-        }
-        foreach (var d in _drips) { d.Vy += 260 * dt; d.Y += d.Vy * dt; }
-        _drips.RemoveAll(d => d.Y > _height);
+        var steps = Math.Max(1, (int)Math.Ceiling(dt * 60));
+        var step = dt / steps;
+        for (var n = 0; n < steps; n++)
+            AdvanceWeather(time - dt + (n + 1) * step, step, raining);
 
         if (_nextStrike < _plan.Lightning.Length && time >= _plan.Lightning[_nextStrike])
         {
@@ -230,7 +248,58 @@ internal sealed class GloomCanvas : FrameworkElement
         InvalidateVisual();
     }
 
-    private Point[][] MakeBolt()
+    private void AdvanceWeather(double time, double dt, bool raining)
+    {
+        var gust = Math.Sin(time * 0.75) * 45 + Math.Sin(time * 1.93) * 18;
+        for (var i = _rain.Count - 1; i >= 0; i--)
+        {
+            var d = _rain[i];
+            d.Y += d.Speed * dt;
+            d.X += (-d.Speed * 0.18 + gust * d.Depth + Math.Sin(time * 2.2 + d.WindPhase) * 16) * dt;
+            if (d.Y > Ground + d.GroundOffset && d.X > _focus.X && d.X < _focus.Right)
+            {
+                if (_random.NextDouble() < 0.28 * d.Depth)
+                    _splashes.Add(new Splash { X = d.X, Y = Ground + d.GroundOffset, Spread = 6 + d.Depth * 10 });
+                if (raining) _rain[i] = NewDrop(false); else _rain.RemoveAt(i);
+            }
+            else if (d.Y > _height + 40) { if (raining) _rain[i] = NewDrop(false); else _rain.RemoveAt(i); }
+        }
+        foreach (var s in _splashes) s.Age += dt;
+        _splashes.RemoveAll(s => s.Age > 0.35);
+
+        foreach (var l in _leaves)
+        {
+            l.Y += l.Vy * dt;
+            l.X += (Math.Sin(time * 1.4 + l.Phase) * l.Sway - 20 + gust * 0.3) * dt;
+            l.Angle += (l.Spin + Math.Sin(time * l.Flutter + l.Phase) * 45) * dt;
+        }
+        for (var i = 0; i < _leaves.Count; i++)
+            if (_leaves[i].Y > Ground) _leaves[i] = NewLeaf(false);
+
+        // Black ink drips from the headline.
+        if (time > 1.5 && time < GloomWindow.ShowSeconds - 1 && _random.NextDouble() < dt * 6 && _title is not null)
+        {
+            var b = _title.Bounds;
+            _drips.Add(new Drip { X = b.X + _random.NextDouble() * b.Width, Y = b.Bottom - 4, Vy = 10 });
+        }
+        foreach (var d in _drips) { d.Vy += 260 * dt; d.Y += d.Vy * dt; }
+        _drips.RemoveAll(d => d.Y > _height);
+    }
+
+    private static Geometry CreateLeafGeometry()
+    {
+        var leaf = new StreamGeometry();
+        using (var c = leaf.Open())
+        {
+            c.BeginFigure(new Point(-1, 0), true, true);
+            c.BezierTo(new Point(-0.45, -0.72), new Point(0.45, -0.72), new Point(1, 0), true, true);
+            c.BezierTo(new Point(0.45, 0.72), new Point(-0.45, 0.72), new Point(-1, 0), true, true);
+        }
+        leaf.Freeze();
+        return leaf;
+    }
+
+    private Geometry[] MakeBolt()
     {
         var x = _focus.X + _focus.Width * (0.15 + _random.NextDouble() * 0.7);
         var y = _focus.Y + _focus.Height * 0.08;
@@ -249,7 +318,17 @@ internal sealed class GloomCanvas : FrameworkElement
                 branches.Add(branch.ToArray());
             }
         }
-        return branches.Prepend(main.ToArray()).ToArray();
+        return branches.Prepend(main.ToArray()).Select(points =>
+        {
+            var geometry = new StreamGeometry();
+            using (var c = geometry.Open())
+            {
+                c.BeginFigure(points[0], false, false);
+                c.PolyLineTo(points.Skip(1).ToArray(), true, true);
+            }
+            geometry.Freeze();
+            return (Geometry)geometry;
+        }).ToArray();
     }
 
     private Brush Fill(Color c, double alpha)
@@ -270,9 +349,9 @@ internal sealed class GloomCanvas : FrameworkElement
         var all = new Rect(0, 0, _width, _height);
 
         dc.DrawRectangle(Fill(Color.FromRgb(8, 12, 22), 0.72 * show), null, all);
-        var vignette = new RadialGradientBrush(Color.FromArgb(0, 0, 0, 0), Color.FromArgb((byte)(200 * show), 0, 0, 0)) { RadiusX = 0.7, RadiusY = 0.7 };
-        vignette.Freeze();
-        dc.DrawRectangle(vignette, null, _focus);
+        dc.PushOpacity(show);
+        dc.DrawRectangle(VignetteBrush, null, _focus);
+        dc.Pop();
 
         // Lightning flash and bolt.
         var sinceWash = _time - _washAt;
@@ -281,10 +360,9 @@ internal sealed class GloomCanvas : FrameworkElement
         // Storm clouds.
         foreach (var (cx, cy, r, speed) in _clouds)
         {
-            var x = cx + _time * speed;
-            var g = new RadialGradientBrush(Color.FromArgb((byte)(200 * show), 30, 32, 40), Color.FromArgb(0, 30, 32, 40));
-            g.Freeze();
-            dc.DrawEllipse(g, null, new Point(x, cy), r * 1.4, r * 0.7);
+            var span = _focus.Width + r * 3;
+            var x = _focus.Left - r * 1.5 + ((cx - _focus.Left + r * 1.5 + _time * speed) % span);
+            DrawStormCloud(dc, x, cy, r, show);
         }
 
         var sinceBolt = _time - _boltAt;
@@ -293,26 +371,32 @@ internal sealed class GloomCanvas : FrameworkElement
             var alpha = 1 - sinceBolt / 0.35;
             foreach (var line in _bolt)
             {
-                var geo = new StreamGeometry();
-                using (var c = geo.Open())
-                {
-                    c.BeginFigure(line[0], false, false);
-                    c.PolyLineTo(line.Skip(1).ToList(), true, true);
-                }
-                geo.Freeze();
-                dc.DrawGeometry(null, new Pen(Fill(Color.FromRgb(160, 180, 255), 0.35 * alpha), line == _bolt[0] ? 14 : 7), geo);
-                dc.DrawGeometry(null, new Pen(Fill(Colors.White, alpha), line == _bolt[0] ? 3 : 1.5), geo);
+                dc.DrawGeometry(null, new Pen(Fill(Color.FromRgb(160, 180, 255), 0.35 * alpha), ReferenceEquals(line, _bolt[0]) ? 14 : 7), line);
+                dc.DrawGeometry(null, new Pen(Fill(Colors.White, alpha), ReferenceEquals(line, _bolt[0]) ? 3 : 1.5), line);
             }
         }
 
         // Rain.
-        var rainPen = new Pen(Fill(Color.FromRgb(170, 185, 210), 0.38 * show), 1.2);
+        var rainPens = new[]
+        {
+            new Pen(Fill(Color.FromRgb(140, 158, 185), 0.2 * show), 0.65),
+            new Pen(Fill(Color.FromRgb(165, 181, 207), 0.34 * show), 1.0),
+            new Pen(Fill(Color.FromRgb(190, 204, 226), 0.48 * show), 1.35)
+        };
+        foreach (var pen in rainPens) pen.Freeze();
         foreach (var d in _rain)
-            dc.DrawLine(rainPen, new Point(d.X, d.Y), new Point(d.X + d.Length * 0.18, d.Y - d.Length));
+        {
+            var layer = Math.Clamp((int)(d.Depth * 3), 0, 2);
+            dc.DrawLine(rainPens[layer], new Point(d.X, d.Y), new Point(d.X + d.Length * 0.18, d.Y - d.Length));
+        }
         foreach (var s in _splashes)
         {
             var p = s.Age / 0.35;
-            dc.DrawEllipse(null, new Pen(Fill(Color.FromRgb(170, 185, 210), 0.5 * (1 - p) * show), 1), new Point(s.X, s.Y), 3 + p * 10, 1 + p * 3);
+            var splashPen = new Pen(Fill(Color.FromRgb(180, 197, 220), 0.55 * (1 - p) * show), 1);
+            splashPen.Freeze();
+            dc.DrawEllipse(null, splashPen, new Point(s.X, s.Y), 2 + p * s.Spread, 0.8 + p * 2.2);
+            dc.DrawLine(splashPen, new Point(s.X - p * s.Spread * 0.35, s.Y - p * 3), new Point(s.X - p * s.Spread * 0.65, s.Y - Math.Sin(p * Math.PI) * 8));
+            dc.DrawLine(splashPen, new Point(s.X + p * s.Spread * 0.25, s.Y - p * 2), new Point(s.X + p * s.Spread * 0.55, s.Y - Math.Sin(p * Math.PI) * 6));
         }
 
         DrawGrave(dc, show);
@@ -321,8 +405,11 @@ internal sealed class GloomCanvas : FrameworkElement
         {
             dc.PushTransform(new TranslateTransform(l.X, l.Y));
             dc.PushTransform(new RotateTransform(l.Angle));
-            dc.DrawEllipse(Fill(l.Color, 0.85 * show), null, new Point(0, 0), l.Size, l.Size * 0.45);
-            dc.DrawLine(new Pen(Fill(Color.FromRgb(40, 30, 20), 0.8 * show), 1), new Point(-l.Size, 0), new Point(l.Size, 0));
+            var flip = 0.25 + 0.75 * Math.Abs(Math.Cos(_time * l.Flutter + l.Phase));
+            dc.PushTransform(new ScaleTransform(l.Size, l.Size * 0.52 * flip));
+            dc.DrawGeometry(Fill(l.Color, 0.88 * show), new Pen(Fill(Color.FromRgb(45, 34, 23), 0.7 * show), 0.08), _leafGeometry);
+            dc.DrawLine(new Pen(Fill(Color.FromRgb(43, 31, 20), 0.75 * show), 0.07), new Point(-1.18, 0), new Point(0.78, 0));
+            dc.Pop();
             dc.Pop();
             dc.Pop();
         }
@@ -334,6 +421,20 @@ internal sealed class GloomCanvas : FrameworkElement
             dc.DrawEllipse(Fill(Color.FromRgb(15, 15, 18), 0.9 * show), null, new Point(d.X, d.Y), 2.2, 3.6);
     }
 
+    private void DrawStormCloud(DrawingContext dc, double x, double y, double r, double show)
+    {
+        var shadow = Fill(Color.FromRgb(12, 15, 23), 0.72 * show);
+        var dark = Fill(Color.FromRgb(35, 39, 50), 0.94 * show);
+        var mid = Fill(Color.FromRgb(53, 57, 68), 0.82 * show);
+        dc.DrawEllipse(shadow, null, new Point(x + r * 0.08, y + r * 0.22), r * 1.24, r * 0.48);
+        dc.DrawEllipse(dark, null, new Point(x - r * 0.54, y + r * 0.05), r * 0.62, r * 0.42);
+        dc.DrawEllipse(mid, null, new Point(x - r * 0.12, y - r * 0.14), r * 0.72, r * 0.52);
+        dc.DrawEllipse(dark, null, new Point(x + r * 0.45, y + r * 0.01), r * 0.68, r * 0.46);
+        dc.DrawEllipse(dark, null, new Point(x, y + r * 0.18), r * 1.12, r * 0.42);
+        dc.DrawEllipse(Fill(Color.FromRgb(82, 85, 94), 0.25 * show), null,
+            new Point(x - r * 0.18, y - r * 0.29), r * 0.43, r * 0.15);
+    }
+
     private void DrawGrave(DrawingContext dc, double show)
     {
         var size = Math.Min(_focus.Width, _focus.Height);
@@ -341,32 +442,37 @@ internal sealed class GloomCanvas : FrameworkElement
         var h = w * 1.25;
         var x = _focus.X + _focus.Width / 2 - w / 2;
         var y = Ground - h;
-        var stone = new StreamGeometry();
-        using (var c = stone.Open())
-        {
-            c.BeginFigure(new Point(x, Ground), true, true);
-            c.LineTo(new Point(x, y + w / 2), true, false);
-            c.ArcTo(new Point(x + w, y + w / 2), new Size(w / 2, w / 2), 0, false, SweepDirection.Clockwise, true, false);
-            c.LineTo(new Point(x + w, Ground), true, false);
-        }
-        stone.Freeze();
-        var fill = new LinearGradientBrush(Color.FromArgb((byte)(255 * show), 110, 112, 118), Color.FromArgb((byte)(255 * show), 60, 62, 68), 90);
-        fill.Freeze();
-        dc.DrawGeometry(fill, new Pen(Fill(Color.FromRgb(30, 30, 34), show), 2), stone);
+
+        // Damp soil, soft contact shadow and a slightly irregular mound anchor the object in the scene.
+        dc.DrawRectangle(Fill(Color.FromRgb(14, 16, 14), 0.95 * show), null, new Rect(_focus.X, Ground, _focus.Width, _focus.Bottom - Ground));
+        dc.DrawEllipse(Fill(Colors.Black, 0.48 * show), null, new Point(x + w * 0.5, Ground + w * 0.035), w * 0.8, w * 0.12);
+        dc.DrawEllipse(Fill(Color.FromRgb(37, 31, 24), 0.9 * show), null, new Point(x + w * 0.5, Ground), w * 0.66, w * 0.105);
+
+        _graveStone ??= CreateGraveStone(x, y, w);
+        dc.PushOpacity(show);
+        dc.DrawGeometry(StoneBrush, new Pen(Fill(Color.FromRgb(30, 30, 34), 1), 2), _graveStone);
+        dc.DrawGeometry(null, new Pen(Fill(Color.FromRgb(188, 190, 194), 0.3), 1.2), _graveStone);
+        dc.Pop();
+
+        // Weathered chips, cracks and moss stay fixed so the texture does not shimmer between frames.
+        var crackPen = new Pen(Fill(Color.FromRgb(37, 39, 42), 0.72 * show), Math.Max(0.8, w * 0.009));
+        crackPen.Freeze();
+        dc.DrawLine(crackPen, new Point(x + w * 0.18, y + w * 0.43), new Point(x + w * 0.29, y + w * 0.54));
+        dc.DrawLine(crackPen, new Point(x + w * 0.29, y + w * 0.54), new Point(x + w * 0.23, y + w * 0.66));
+        dc.DrawLine(crackPen, new Point(x + w * 0.78, y + w * 0.76), new Point(x + w * 0.66, y + w * 0.86));
+        dc.DrawEllipse(Fill(Color.FromRgb(55, 71, 47), 0.62 * show), null, new Point(x + w * 0.18, Ground - w * 0.08), w * 0.17, w * 0.07);
+        dc.DrawEllipse(Fill(Color.FromRgb(67, 82, 52), 0.5 * show), null, new Point(x + w * 0.78, Ground - w * 0.16), w * 0.13, w * 0.055);
 
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        void Carve(string text, double fontSize, double ty)
-        {
-            var ft = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                new Typeface(new FontFamily("Georgia, Times New Roman"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal), fontSize, Fill(Color.FromRgb(35, 36, 40), show), dpi);
-            dc.DrawText(ft, new Point(x + w / 2 - ft.Width / 2, ty));
-        }
-        Carve("R.I.P.", w * 0.2, y + w * 0.32);
-        Carve(Loc.T("gloom.rip"), w * 0.13, y + w * 0.62);
-        Carve("✝", w * 0.16, y + w * 0.86);
+        _graveRip ??= GraveText("R.I.P.", w * 0.2, x + w / 2, y + w * 0.32, dpi);
+        _graveBreak ??= GraveText(Loc.T("gloom.rip"), w * 0.13, x + w / 2, y + w * 0.62, dpi);
+        _graveCross ??= GraveText("✝", w * 0.16, x + w / 2, y + w * 0.86, dpi);
+        var carving = Fill(Color.FromRgb(35, 36, 40), show);
+        dc.DrawGeometry(carving, null, _graveRip);
+        dc.DrawGeometry(carving, null, _graveBreak);
+        dc.DrawGeometry(carving, null, _graveCross);
 
-        // Ground and two flickering candles.
-        dc.DrawRectangle(Fill(Color.FromRgb(14, 16, 14), 0.95 * show), null, new Rect(_focus.X, Ground, _focus.Width, _focus.Bottom - Ground));
+        // Two wax candles with a layered teardrop flame.
         foreach (var side in new[] { -1, 1 })
         {
             var cx = _focus.X + _focus.Width / 2 + side * w * 0.95;
@@ -374,8 +480,20 @@ internal sealed class GloomCanvas : FrameworkElement
             var glow = new RadialGradientBrush(Color.FromArgb((byte)(90 * flicker * show), 255, 170, 80), Color.FromArgb(0, 255, 170, 80));
             glow.Freeze();
             dc.DrawEllipse(glow, null, new Point(cx, Ground - w * 0.42), w * 0.45, w * 0.45);
-            dc.DrawRectangle(Fill(Color.FromRgb(225, 220, 200), show), null, new Rect(cx - w * 0.05, Ground - w * 0.32, w * 0.1, w * 0.32));
-            dc.DrawEllipse(Fill(Color.FromRgb(255, 190, 90), flicker * show), null, new Point(cx, Ground - w * 0.38), w * 0.035, w * 0.07 * flicker);
+            dc.PushOpacity(show);
+            dc.DrawRoundedRectangle(CandleBrush, new Pen(Fill(Color.FromRgb(110, 102, 89), 0.7), 1),
+                new Rect(cx - w * 0.052, Ground - w * 0.32, w * 0.104, w * 0.32), w * 0.018, w * 0.018);
+            dc.Pop();
+            dc.DrawEllipse(Fill(Color.FromRgb(245, 239, 218), show), null, new Point(cx, Ground - w * 0.318), w * 0.052, w * 0.018);
+            dc.DrawLine(new Pen(Fill(Color.FromRgb(45, 37, 28), show), 1.2), new Point(cx, Ground - w * 0.327), new Point(cx, Ground - w * 0.355));
+
+            dc.PushTransform(new TranslateTransform(cx, Ground - w * 0.35));
+            dc.PushTransform(new ScaleTransform(w * 0.052, w * 0.095 * flicker));
+            dc.DrawGeometry(Fill(Color.FromRgb(255, 178, 52), flicker * show), null, CandleFlameGeometry);
+            dc.Pop();
+            dc.Pop();
+            dc.DrawEllipse(Fill(Color.FromRgb(255, 244, 184), 0.95 * show), null,
+                new Point(cx, Ground - w * 0.395), w * 0.014, w * 0.038 * flicker);
         }
     }
 
@@ -384,20 +502,35 @@ internal sealed class GloomCanvas : FrameworkElement
         const double duration = 4.5;
         if (t is < 0 or > duration) return;
         var p = t / duration;
+        var travel = p * p * (3 - 2 * p);
         var size = Math.Min(_focus.Width, _focus.Height) * 0.05;
-        var x = _focus.Right + size - p * (_focus.Width + size * 2);
-        var y = _focus.Y + _focus.Height * (0.22 + 0.05 * Math.Sin(p * 6));
-        var flap = Math.Sin(t * 9);
-        var wing = new StreamGeometry();
-        using (var c = wing.Open())
-        {
-            c.BeginFigure(new Point(x - size, y - flap * size * 0.6), false, false);
-            c.QuadraticBezierTo(new Point(x - size * 0.4, y - size * 0.1), new Point(x, y), true, true);
-            c.QuadraticBezierTo(new Point(x + size * 0.4, y - size * 0.1), new Point(x + size, y - flap * size * 0.6), true, true);
-        }
-        wing.Freeze();
-        dc.DrawGeometry(null, new Pen(Fill(Color.FromRgb(10, 10, 12), show), size * 0.18) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, wing);
-        dc.DrawEllipse(Fill(Color.FromRgb(10, 10, 12), show), null, new Point(x, y + size * 0.05), size * 0.22, size * 0.14);
+        var x = _focus.Right + size - travel * (_focus.Width + size * 2);
+        var flap = (Math.Sin(t * 9.2) + 1) * 0.5;
+        var y = _focus.Y + _focus.Height * (0.22 + 0.045 * Math.Sin(p * Math.PI * 2)) - flap * size * 0.05;
+
+        var black = Fill(Color.FromRgb(9, 11, 14), 1);
+        var charcoal = Fill(Color.FromRgb(24, 28, 34), 1);
+        var edge = new Pen(Fill(Color.FromRgb(82, 88, 96), 0.5), 0.018);
+        edge.Freeze();
+
+        dc.PushOpacity(show);
+        dc.PushTransform(new TranslateTransform(x, y));
+        dc.PushTransform(new ScaleTransform(size, size));
+        dc.PushTransform(new ScaleTransform(0.92, 0.45 + flap * 0.48));
+        dc.DrawGeometry(black, edge, CrowWingGeometry);
+        dc.Pop();
+        dc.DrawGeometry(black, null, CrowTailGeometry);
+        dc.DrawEllipse(charcoal, edge, new Point(0, 0.035), 0.39, 0.15);
+        dc.PushTransform(new ScaleTransform(1.05, 0.58 + flap * 0.62));
+        dc.DrawGeometry(Fill(Color.FromRgb(17, 20, 25), 1), edge, CrowWingGeometry);
+        dc.Pop();
+        dc.DrawEllipse(charcoal, null, new Point(-0.35, -0.07), 0.18, 0.14);
+        dc.DrawGeometry(black, null, CrowBeakGeometry);
+        dc.DrawEllipse(Fill(Color.FromRgb(185, 192, 205), 0.9), null, new Point(-0.405, -0.11), 0.022, 0.022);
+        dc.DrawEllipse(Fill(Colors.Black, 1), null, new Point(-0.412, -0.112), 0.01, 0.01);
+        dc.Pop();
+        dc.Pop();
+        dc.Pop();
     }
 
     private void DrawTitle(DrawingContext dc, double show)
@@ -417,9 +550,7 @@ internal sealed class GloomCanvas : FrameworkElement
         dc.PushTransform(new TranslateTransform(4, 6));
         dc.DrawGeometry(Fill(Colors.Black, 0.7), null, _title);
         dc.Pop();
-        var fill = new LinearGradientBrush(Color.FromRgb(200, 204, 214), Color.FromRgb(90, 94, 104), 90);
-        fill.Freeze();
-        dc.DrawGeometry(fill, new Pen(Fill(Color.FromRgb(20, 22, 28), 1), titleSize * 0.03), _title);
+        dc.DrawGeometry(TitleBrush, new Pen(Fill(Color.FromRgb(20, 22, 28), 1), titleSize * 0.03), _title);
         dc.DrawGeometry(Fill(Color.FromRgb(150, 156, 170), 1), null, _subtitle);
         dc.Pop();
         dc.Pop();
@@ -434,6 +565,92 @@ internal sealed class GloomCanvas : FrameworkElement
         geo.Transform = new TranslateTransform(center.X - b.X - b.Width / 2, center.Y - b.Y - b.Height / 2);
         geo.Freeze();
         return geo;
+    }
+
+    private static Geometry CreateCrowWingGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(-0.05, 0), true, true);
+            c.BezierTo(new Point(0.08, -0.25), new Point(0.28, -0.72), new Point(0.62, -0.86), true, true);
+            c.LineTo(new Point(0.86, -0.8), true, false);
+            c.LineTo(new Point(0.68, -0.58), true, false);
+            c.LineTo(new Point(0.9, -0.48), true, false);
+            c.LineTo(new Point(0.61, -0.33), true, false);
+            c.LineTo(new Point(0.78, -0.2), true, false);
+            c.BezierTo(new Point(0.38, -0.06), new Point(0.2, 0.13), new Point(-0.08, 0.14), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreateCandleFlameGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(0, -1.45), true, true);
+            c.BezierTo(new Point(-1, -0.8), new Point(-0.55, -0.08), new Point(0, 0), true, true);
+            c.BezierTo(new Point(0.58, -0.12), new Point(0.86, -0.82), new Point(0, -1.45), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreatePolygon(params Point[] points)
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(points[0], true, true);
+            c.PolyLineTo(points.Skip(1).ToArray(), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreateGraveStone(double x, double y, double width)
+    {
+        var ground = y + width * 1.25;
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(x, ground), true, true);
+            c.LineTo(new Point(x, y + width / 2), true, false);
+            c.ArcTo(new Point(x + width, y + width / 2), new Size(width / 2, width / 2), 0, false, SweepDirection.Clockwise, true, false);
+            c.LineTo(new Point(x + width, ground), true, false);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry GraveText(string text, double size, double centerX, double y, double dpi)
+    {
+        var formatted = new FormattedText(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            new Typeface(new FontFamily("Georgia, Times New Roman"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+            size, Brushes.White, dpi);
+        var geometry = formatted.BuildGeometry(new Point(centerX - formatted.Width / 2, y));
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Brush CreateGradientBrush(Color from, Color to, double angle)
+    {
+        var brush = new LinearGradientBrush(from, to, angle);
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Brush CreateVignetteBrush()
+    {
+        var brush = new RadialGradientBrush(Color.FromArgb(0, 0, 0, 0), Color.FromArgb(200, 0, 0, 0))
+        {
+            RadiusX = 0.7,
+            RadiusY = 0.7
+        };
+        brush.Freeze();
+        return brush;
     }
 }
 

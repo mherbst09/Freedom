@@ -34,3 +34,7 @@ Alle persönlichen Daten (Einstellungen, Stundenplan-Cache, Koffein-Einträge, A
 ## Genauigkeit der Uhr
 
 Die Zeit wird per NTP abgeglichen und mit `Stopwatch` interpoliert. Eine normale Windows-App mit Internet-NTP kann keine garantierte physikalische Mikrosekundengenauigkeit liefern; die reale Genauigkeit hängt von Netzwerk, Servern und Hardware ab.
+
+## Mitwirkende
+
+- **Codex (OpenAI):** realistischere Feuerwerk- und Stundenbeginn-Animationen, 60-FPS-Optimierung sowie Render- und Performance-Tests.

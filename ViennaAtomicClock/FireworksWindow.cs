@@ -10,7 +10,7 @@ using System.Windows.Media;
 namespace ViennaAtomicClock;
 
 /// <summary>
-/// Transparent, click-through overlay across all monitors that plays a loud casino-style "big win" show
+/// Transparent, click-through overlay on the active monitor that plays a loud casino-style "big win" show
 /// (fireworks, bombs, tracers, a tank, an eagle, coin rain, a synthesized soundtrack) and closes itself afterwards.
 /// </summary>
 internal sealed class FireworksWindow : Window
@@ -22,6 +22,8 @@ internal sealed class FireworksWindow : Window
     private SoundPlayer? _sound;
     private MemoryStream? _soundStream;
     private double _lastFrameSeconds;
+    private double _nextFrameSeconds;
+    private int _slowFrames;
     private bool _running;
     private bool _closed;
 
@@ -39,14 +41,17 @@ internal sealed class FireworksWindow : Window
         IsHitTestVisible = false;
         Title = "Feuerwerk";
 
-        Left = SystemParameters.VirtualScreenLeft;
-        Top = SystemParameters.VirtualScreenTop;
-        Width = SystemParameters.VirtualScreenWidth;
-        Height = SystemParameters.VirtualScreenHeight;
+        var target = focusArea;
+        if (target.IsEmpty || target.Width < 200 || target.Height < 200)
+            target = new Rect(0, 0, SystemParameters.PrimaryScreenWidth, SystemParameters.PrimaryScreenHeight);
+        Left = target.X;
+        Top = target.Y;
+        Width = target.Width;
+        Height = target.Height;
 
-        var focus = new Rect(focusArea.X - Left, focusArea.Y - Top, focusArea.Width, focusArea.Height);
-        focus.Intersect(new Rect(0, 0, Width, Height));
-        if (focus.IsEmpty || focus.Width < 200 || focus.Height < 200) focus = new Rect(0, 0, Width, Height);
+        // Rendering one layered window per selected monitor is dramatically cheaper than repainting the
+        // complete multi-monitor virtual desktop, especially when one display is 4K.
+        var focus = new Rect(0, 0, Width, Height);
 
         var show = FireworkShow.Create(Width, Height, focus, Random.Shared);
         _canvas = new FireworksCanvas(show, Width, Height);
@@ -139,7 +144,20 @@ internal sealed class FireworksWindow : Window
     private void OnRendering(object? sender, EventArgs e)
     {
         var now = _stopwatch.Elapsed.TotalSeconds;
-        var dt = Math.Clamp(now - _lastFrameSeconds, 0, 0.05);
+        const double frameInterval = 1.0 / 60;
+        if (now + 0.0005 < _nextFrameSeconds) return;
+        _nextFrameSeconds += frameInterval;
+        if (_nextFrameSeconds < now) _nextFrameSeconds = now + frameInterval;
+        var elapsed = now - _lastFrameSeconds;
+        if (_lastFrameSeconds > 0 && elapsed > 1.0 / 45)
+        {
+            if (++_slowFrames >= 3) { _canvas.ReduceLoad(); _slowFrames = 0; }
+        }
+        else
+        {
+            _slowFrames = 0;
+        }
+        var dt = Math.Clamp(elapsed, 0, 0.05);
         _lastFrameSeconds = now;
 
         _canvas.Advance(now, dt);
@@ -352,9 +370,16 @@ internal sealed class Confetti
 
 internal sealed class FireworksCanvas : FrameworkElement
 {
-    private const int AlphaLevels = 32;
-    private const int MaxSparks = 6500;
+    private const int AlphaLevels = 16;
     private const double WashSeconds = 0.3;
+    private static readonly Color[] RainbowColors = Enumerable.Range(0, 72).Select(i => Hsv(i * 5)).ToArray();
+    private static readonly Geometry RocketFlameGeometry = CreateRocketFlameGeometry();
+    private static readonly Geometry RocketBodyGeometry = CreateRocketBodyGeometry();
+    private static readonly Geometry BombLeftFinGeometry = CreatePolygon(new Point(-4, -12), new Point(-12, -21), new Point(-8, -5), new Point(-4, -2));
+    private static readonly Geometry BombRightFinGeometry = CreatePolygon(new Point(4, -12), new Point(12, -21), new Point(8, -5), new Point(4, -2));
+    private static readonly Geometry BombHighlightGeometry = CreatePolyline(new Point(-3, -10), new Point(-4.5, -3), new Point(-3.5, 6), new Point(-1, 12));
+    private static readonly Geometry BombBodyGeometry = CreateBombBodyGeometry();
+    private static readonly Brush BombMetalBrush = CreateBombMetalBrush();
     // Full-screen colour washes stay below 3 per second (photosensitivity guideline).
     private const double MinWashGap = 0.34;
 
@@ -364,16 +389,21 @@ internal sealed class FireworksCanvas : FrameworkElement
     private readonly List<Cue> _activeCues = new();
     private readonly Dictionary<Cue, double> _nextShot = new();
     private readonly List<Spark> _sparks = new();
+    private readonly List<Spark> _splitBuffer = new();
     private readonly List<Flash> _flashes = new();
     private readonly List<Shockwave> _shocks = new();
     private readonly List<Wash> _washes = new();
     private readonly List<Coin> _coins = new();
     private readonly List<Confetti> _confetti = new();
     private readonly List<Point> _bulbs = new();
+    private readonly Geometry[] _sunburstRays;
+    private readonly Dictionary<Shell, double> _rocketTrailCarry = new();
+    private readonly Dictionary<Cue, double> _cueParticleCarry = new();
     private readonly Dictionary<(Color, int), SolidColorBrush> _brushes = new();
     private readonly Dictionary<(Color, int, int, bool), Pen> _pens = new();
     private readonly double _width;
     private readonly double _height;
+    private int _maxSparks;
     private readonly Rect _focus;
     private readonly Point _center;
     private readonly Random _random = new();
@@ -389,8 +419,10 @@ internal sealed class FireworksCanvas : FrameworkElement
         _pendingCues = new List<Cue>(show.Cues);
         _width = width;
         _height = height;
+        _maxSparks = width * height > 3_000_000 ? 950 : 1400;
         _focus = show.Focus;
         _center = new Point(_focus.X + _focus.Width / 2, _focus.Y + _focus.Height * 0.42);
+        _sunburstRays = CreateSunburstRays();
         IsHitTestVisible = false;
 
         // Casino marquee bulbs around the focus screen.
@@ -406,6 +438,16 @@ internal sealed class FireworksCanvas : FrameworkElement
 
     public bool IsIdle => _pending.Count == 0 && _rising.Count == 0 && _sparks.Count == 0 && _flashes.Count == 0
                           && _pendingCues.Count == 0 && _activeCues.Count == 0 && _coins.Count == 0 && _confetti.Count == 0;
+
+    public void ReduceLoad()
+    {
+        var reduced = Math.Max(650, (int)(_maxSparks * 0.72));
+        if (reduced >= _maxSparks) return;
+        _maxSparks = reduced;
+        if (_sparks.Count > _maxSparks) _sparks.RemoveRange(0, _sparks.Count - _maxSparks);
+        if (_confetti.Count > 120) _confetti.RemoveRange(0, _confetti.Count - 120);
+        if (_coins.Count > 90) _coins.RemoveRange(0, _coins.Count - 90);
+    }
 
     private double MinFocus => Math.Min(_focus.Width, _focus.Height);
 
@@ -426,7 +468,7 @@ internal sealed class FireworksCanvas : FrameworkElement
             StartCue(cue);
         }
 
-        AdvanceCues(time);
+        AdvanceCues(time, dt);
 
         for (var i = _rising.Count - 1; i >= 0; i--)
         {
@@ -434,13 +476,17 @@ internal sealed class FireworksCanvas : FrameworkElement
             if (time >= shell.BurstAt)
             {
                 _rising.RemoveAt(i);
+                _rocketTrailCarry.Remove(shell);
                 Burst(shell);
                 continue;
             }
 
-            // Rocket tail: short-lived golden sparks behind the rising head.
+            // Time-based emission keeps the trail equally dense on 60, 120 and 144 Hz displays.
             var (x, y) = RocketPosition(shell, time);
-            for (var k = 0; k < 3; k++)
+            var carry = (_rocketTrailCarry.TryGetValue(shell, out var stored) ? stored : 0) + dt * 150;
+            var count = Math.Min(12, (int)carry);
+            _rocketTrailCarry[shell] = carry - count;
+            for (var k = 0; k < count; k++)
             {
                 AddSpark(new Spark
                 {
@@ -469,7 +515,28 @@ internal sealed class FireworksCanvas : FrameworkElement
             }
         }
 
-        var splits = new List<Spark>();
+        // Small integration steps make gravity and drag stable even after a dropped render frame.
+        var steps = Math.Max(1, (int)Math.Ceiling(dt * 60));
+        var step = dt / steps;
+        for (var i = 0; i < steps; i++) AdvanceParticles(step);
+
+        _sparks.RemoveAll(s => s.Age >= s.Life || s.Y > _height + 40);
+        _coins.RemoveAll(c => c.Y > _height + 60);
+        _confetti.RemoveAll(c => c.Age >= c.Life || c.Y > _height + 40);
+
+        foreach (var flash in _flashes) flash.Age += dt;
+        _flashes.RemoveAll(f => f.Age >= f.Duration);
+        foreach (var shock in _shocks) shock.Age += dt;
+        _shocks.RemoveAll(s => s.Age >= 0.7);
+        foreach (var wash in _washes) wash.Age += dt;
+        _washes.RemoveAll(w => w.Age >= WashSeconds);
+
+        InvalidateVisual();
+    }
+
+    private void AdvanceParticles(double dt)
+    {
+        _splitBuffer.Clear();
         foreach (var spark in _sparks)
         {
             spark.Age += dt;
@@ -482,15 +549,11 @@ internal sealed class FireworksCanvas : FrameworkElement
             if (!double.IsNaN(spark.SplitAt) && spark.Age >= spark.SplitAt)
             {
                 spark.SplitAt = double.NaN;
-                spark.Life = spark.Age; // the comet itself ends here
-                splits.Add(spark);
+                spark.Life = spark.Age;
+                _splitBuffer.Add(spark);
             }
         }
-
-        foreach (var parent in splits)
-            SplitCrossette(parent);
-
-        _sparks.RemoveAll(s => s.Age >= s.Life || s.Y > _height + 40);
+        foreach (var parent in _splitBuffer) SplitCrossette(parent);
 
         foreach (var coin in _coins)
         {
@@ -499,7 +562,6 @@ internal sealed class FireworksCanvas : FrameworkElement
             coin.Y += coin.Vy * dt;
             coin.Phase += coin.Spin * dt;
         }
-        _coins.RemoveAll(c => c.Y > _height + 60);
 
         foreach (var piece in _confetti)
         {
@@ -512,16 +574,6 @@ internal sealed class FireworksCanvas : FrameworkElement
             piece.Angle += piece.Spin * dt;
             piece.Flip += piece.FlipSpeed * dt;
         }
-        _confetti.RemoveAll(c => c.Age >= c.Life || c.Y > _height + 40);
-
-        foreach (var flash in _flashes) flash.Age += dt;
-        _flashes.RemoveAll(f => f.Age >= f.Duration);
-        foreach (var shock in _shocks) shock.Age += dt;
-        _shocks.RemoveAll(s => s.Age >= 0.7);
-        foreach (var wash in _washes) wash.Age += dt;
-        _washes.RemoveAll(w => w.Age >= WashSeconds);
-
-        InvalidateVisual();
     }
 
     private void StartCue(Cue cue)
@@ -552,7 +604,7 @@ internal sealed class FireworksCanvas : FrameworkElement
         }
     }
 
-    private void AdvanceCues(double time)
+    private void AdvanceCues(double time, double dt)
     {
         for (var i = _activeCues.Count - 1; i >= 0; i--)
         {
@@ -561,17 +613,20 @@ internal sealed class FireworksCanvas : FrameworkElement
             {
                 case CueKind.Bomb when time >= cue.At:
                     _activeCues.RemoveAt(i);
+                    _cueParticleCarry.Remove(cue);
                     ExplodeBomb(cue);
                     break;
 
                 case CueKind.Bomb:
                 {
                     var (x, y) = BombPosition(cue, time);
-                    AddSpark(new Spark
+                    var count = EmissionCount(cue, 70, 8, dt);
+                    for (var k = 0; k < count; k++) AddSpark(new Spark
                     {
-                        X = x, Y = y, Vx = (_random.NextDouble() - 0.5) * 30, Vy = -60,
-                        Life = 0.35, Drag = 2, Gravity = 0, Size = 2.4, Streak = 0.02,
-                        Color = Color.FromRgb(255, 90, 40), Flicker = true
+                        X = x + (_random.NextDouble() - 0.5) * 5, Y = y - 13,
+                        Vx = (_random.NextDouble() - 0.5) * 35, Vy = -70 - _random.NextDouble() * 35,
+                        Life = 0.3 + _random.NextDouble() * 0.2, Drag = 2, Gravity = 15, Size = 2.2, Streak = 0.025,
+                        Color = _random.NextDouble() < 0.35 ? Colors.White : Color.FromRgb(255, 90, 40), Flicker = true
                     });
                     break;
                 }
@@ -598,10 +653,12 @@ internal sealed class FireworksCanvas : FrameworkElement
                     if (time >= cue.At + cue.Duration)
                     {
                         _activeCues.RemoveAt(i);
+                        _cueParticleCarry.Remove(cue);
                         break;
                     }
                     var (x, y, size, _) = EaglePose(cue, time);
-                    for (var k = 0; k < 3; k++)
+                    var count = EmissionCount(cue, 125, 12, dt);
+                    for (var k = 0; k < count; k++)
                     {
                         AddSpark(new Spark
                         {
@@ -617,6 +674,14 @@ internal sealed class FireworksCanvas : FrameworkElement
         }
     }
 
+    private int EmissionCount(Cue cue, double particlesPerSecond, int maximum, double dt)
+    {
+        var carry = (_cueParticleCarry.TryGetValue(cue, out var stored) ? stored : 0) + particlesPerSecond * dt;
+        var count = Math.Min(maximum, (int)carry);
+        _cueParticleCarry[cue] = carry - count;
+        return count;
+    }
+
     private (double X, double Y) BombPosition(Cue cue, double time)
     {
         var p = Math.Clamp((time - cue.ActiveFrom) / Cue.BombFallSeconds, 0, 1);
@@ -626,12 +691,14 @@ internal sealed class FireworksCanvas : FrameworkElement
     private (double X, double Y, double Size, double Flap) EaglePose(Cue cue, double time)
     {
         var p = Math.Clamp((time - cue.At) / cue.Duration, 0, 1);
-        var size = MinFocus * 0.2;
+        var travel = p * p * (3 - 2 * p);
+        var size = MinFocus * 0.17;
         var from = cue.X > 0 ? _focus.Left - size : _focus.Right + size;
         var to = cue.X > 0 ? _focus.Right + size : _focus.Left - size;
-        var x = from + (to - from) * p;
-        var y = cue.Y + Math.Sin(p * Math.PI * 2) * _focus.Height * 0.05;
-        return (x, y, size, Math.Sin(time * 9));
+        var x = from + (to - from) * travel;
+        var flap = (Math.Sin((time - cue.At) * 8.5) + 1) * 0.5;
+        var y = cue.Y + Math.Sin(p * Math.PI * 2) * _focus.Height * 0.045 - flap * size * 0.035;
+        return (x, y, size, flap);
     }
 
     private void FireTracer(Cue cue)
@@ -654,7 +721,7 @@ internal sealed class FireworksCanvas : FrameworkElement
         AddWash(Color.FromRgb(255, 200, 40), 0.28);
         _flashes.Add(new Flash { X = cue.X, Y = cue.Y, Radius = MinFocus * 0.6, Color = FireworkShow.Gold, Duration = 0.5 });
 
-        for (var i = 0; i < 160; i++)
+        for (var i = 0; i < 100; i++)
         {
             var angle = -Math.PI / 2 + (_random.NextDouble() - 0.5) * 2.4;
             var speed = MinFocus * (0.6 + _random.NextDouble() * 0.9);
@@ -666,7 +733,7 @@ internal sealed class FireworksCanvas : FrameworkElement
             });
         }
 
-        for (var i = 0; i < 320; i++)
+        for (var i = 0; i < 180; i++)
         {
             var angle = _random.NextDouble() * Math.PI * 2;
             var speed = MinFocus * (0.3 + _random.NextDouble() * 1.1);
@@ -935,7 +1002,9 @@ internal sealed class FireworksCanvas : FrameworkElement
 
     private void AddSpark(Spark spark)
     {
-        if (_sparks.Count < MaxSparks) _sparks.Add(spark);
+        if (_sparks.Count >= _maxSparks) return;
+        if (spark.Seed == 0) spark.Seed = _random.NextDouble();
+        _sparks.Add(spark);
     }
 
     private Color Vary(Color color)
@@ -956,6 +1025,78 @@ internal sealed class FireworksCanvas : FrameworkElement
             3 => (0.0, x, c), 4 => (x, 0.0, c), _ => (c, 0.0, x)
         };
         return Color.FromRgb((byte)((r + m) * 255), (byte)((g + m) * 255), (byte)((b + m) * 255));
+    }
+
+    private static Color RainbowColor(double hue)
+    {
+        var index = (int)Math.Round(hue / 5);
+        index %= RainbowColors.Length;
+        if (index < 0) index += RainbowColors.Length;
+        return RainbowColors[index];
+    }
+
+    private static Geometry CreateRocketFlameGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(0, 12), true, true);
+            c.BezierTo(new Point(-4, 18), new Point(-2, 25), new Point(0, 30), true, true);
+            c.BezierTo(new Point(2, 25), new Point(4, 18), new Point(0, 12), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreateRocketBodyGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(0, -12), true, true);
+            c.BezierTo(new Point(-5, -7), new Point(-5, 5), new Point(-3.5, 11), true, true);
+            c.LineTo(new Point(3.5, 11), true, false);
+            c.BezierTo(new Point(5, 5), new Point(5, -7), new Point(0, -12), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreateBombBodyGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(0, 17), true, true);
+            c.BezierTo(new Point(-2, 14), new Point(-8, 8), new Point(-8, -2), true, true);
+            c.BezierTo(new Point(-8, -10), new Point(-5, -15), new Point(0, -15), true, true);
+            c.BezierTo(new Point(5, -15), new Point(8, -10), new Point(8, -2), true, true);
+            c.BezierTo(new Point(8, 8), new Point(2, 14), new Point(0, 17), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Geometry CreatePolygon(params Point[] points) => CreatePointGeometry(points, filled: true);
+    private static Geometry CreatePolyline(params Point[] points) => CreatePointGeometry(points, filled: false);
+
+    private static Geometry CreatePointGeometry(Point[] points, bool filled)
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(points[0], filled, filled);
+            c.PolyLineTo(points.Skip(1).ToArray(), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
+    private static Brush CreateBombMetalBrush()
+    {
+        var brush = new LinearGradientBrush(Color.FromRgb(32, 36, 34), Color.FromRgb(105, 112, 98), 0);
+        brush.Freeze();
+        return brush;
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -989,32 +1130,28 @@ internal sealed class FireworksCanvas : FrameworkElement
         }
 
         foreach (var shell in _rising)
-        {
-            var (x, y) = RocketPosition(shell, _time);
-            dc.DrawEllipse(GetBrush(Colors.White, 1), null, new Point(x, y), 2.4, 2.4);
-            dc.DrawEllipse(GetBrush(FireworkShow.Gold, 0.35), null, new Point(x, y), 6, 6);
-        }
+            DrawRocket(dc, shell);
 
         foreach (var cue in _activeCues)
         {
             if (cue.Kind == CueKind.Bomb)
-            {
-                var (x, y) = BombPosition(cue, _time);
-                dc.DrawEllipse(GetBrush(Color.FromRgb(255, 60, 30), 0.35), null, new Point(x, y), 14, 14);
-                dc.DrawEllipse(GetBrush(Color.FromRgb(40, 40, 40), 1), GetPen(Colors.White, 0.6, 1.5), new Point(x, y), 7, 10);
-            }
+                DrawBomb(dc, cue);
         }
 
-        var lots = _sparks.Count > 3500;
+        var lots = _sparks.Count > 1200;
         foreach (var spark in _sparks)
         {
             var remaining = 1 - spark.Age / spark.Life;
             var alpha = Math.Clamp(remaining * 1.4, 0, 1);
-            if (spark.Flicker && remaining < 0.6 && _random.NextDouble() < 0.45) alpha *= 0.15;
+            if (spark.Flicker && remaining < 0.6)
+            {
+                var twinkle = 0.5 + 0.5 * Math.Sin(spark.Age * 36 + spark.Seed * 31);
+                alpha *= 0.25 + 0.75 * twinkle * twinkle;
+            }
             if (spark.Strobe && remaining < 0.85 && ((int)(_time * 18 + spark.Seed * 7) & 1) == 0) alpha *= 0.05;
             if (alpha < 0.03) continue;
 
-            var baseColor = spark.Rainbow ? Hsv(spark.Hue + spark.Age * 260) : spark.Color;
+            var baseColor = spark.Rainbow ? RainbowColor(spark.Hue + spark.Age * 260) : spark.Color;
             // Freshly ejected sparks burn white-hot, then settle into their colour.
             var color = spark.Age < 0.12 ? Mix(baseColor, Colors.White, 1 - spark.Age / 0.12) : baseColor;
             var head = new Point(spark.X, spark.Y);
@@ -1024,7 +1161,8 @@ internal sealed class FireworksCanvas : FrameworkElement
             dc.DrawLine(GetPen(color, alpha * 0.8, size), tail, head);
             if (!lots && spark.Size >= 2 && remaining > 0.3)
                 dc.DrawEllipse(GetBrush(color, alpha * 0.18), null, head, size * 2.6, size * 2.6);
-            dc.DrawEllipse(GetBrush(color, alpha), null, head, size * 0.75, size * 0.75);
+            if (!lots)
+                dc.DrawEllipse(GetBrush(color, alpha), null, head, size * 0.75, size * 0.75);
         }
 
         foreach (var piece in _confetti)
@@ -1057,28 +1195,73 @@ internal sealed class FireworksCanvas : FrameworkElement
         DrawMarquee(dc, dim);
     }
 
+    private void DrawRocket(DrawingContext dc, Shell shell)
+    {
+        var (x, y) = RocketPosition(shell, _time);
+        var before = RocketPosition(shell, Math.Max(shell.LaunchAt, _time - 0.016));
+        var angle = Math.Atan2(y - before.Y, x - before.X) * 180 / Math.PI + 90;
+
+        dc.PushTransform(new TranslateTransform(x, y));
+        dc.PushTransform(new RotateTransform(angle));
+        dc.DrawGeometry(GetBrush(Color.FromRgb(255, 105, 25), 0.35), null, RocketFlameGeometry);
+        dc.DrawEllipse(GetBrush(FireworkShow.Gold, 0.3), null, new Point(0, 15), 8, 15);
+        dc.DrawGeometry(GetBrush(Color.FromRgb(220, 224, 232), 1), GetPen(Colors.White, 0.8, 0.8), RocketBodyGeometry);
+        dc.DrawLine(GetPen(Color.FromRgb(225, 55, 35), 1, 2, true), new Point(-3.8, 5), new Point(3.8, 5));
+        dc.Pop();
+        dc.Pop();
+    }
+
+    private void DrawBomb(DrawingContext dc, Cue cue)
+    {
+        var (x, y) = BombPosition(cue, _time);
+        var p = Math.Clamp((_time - cue.ActiveFrom) / Cue.BombFallSeconds, 0, 1);
+        var angle = Math.Sin(p * Math.PI * 1.4 + cue.X * 0.01) * 9;
+
+        dc.DrawEllipse(GetBrush(Color.FromRgb(255, 70, 25), 0.22), null, new Point(x, y - 18), 17, 22);
+        dc.PushTransform(new TranslateTransform(x, y));
+        dc.PushTransform(new RotateTransform(angle));
+        dc.DrawGeometry(GetBrush(Color.FromRgb(45, 50, 44), 1), null, BombLeftFinGeometry);
+        dc.DrawGeometry(GetBrush(Color.FromRgb(45, 50, 44), 1), null, BombRightFinGeometry);
+        dc.DrawGeometry(BombMetalBrush, GetPen(Color.FromRgb(210, 215, 195), 0.7, 1.2), BombBodyGeometry);
+        dc.DrawLine(GetPen(Color.FromRgb(210, 178, 55), 0.9, 2.2, true), new Point(-7.4, 4), new Point(7.4, 4));
+        dc.DrawGeometry(null, GetPen(Colors.White, 0.22, 1.1), BombHighlightGeometry);
+        dc.Pop();
+        dc.Pop();
+    }
+
     private void DrawSunburst(DrawingContext dc, double dim)
     {
         var alpha = TitleAlpha() * dim;
         if (alpha <= 0) return;
 
-        const int rays = 18;
-        var length = Math.Sqrt(_focus.Width * _focus.Width + _focus.Height * _focus.Height);
-        var spin = _time * 0.6;
-        for (var i = 0; i < rays; i++)
+        dc.PushTransform(new RotateTransform(_time * 0.6 * 180 / Math.PI, _center.X, _center.Y));
+        for (var i = 0; i < _sunburstRays.Length; i++)
         {
-            var a = spin + i * Math.PI * 2 / rays;
-            var w = Math.PI / rays * 0.55;
+            dc.DrawGeometry(GetBrush(RainbowColor(i * 40 + _time * 90), alpha * 0.14), null, _sunburstRays[i]);
+        }
+        dc.Pop();
+    }
+
+    private Geometry[] CreateSunburstRays()
+    {
+        const int count = 18;
+        var rays = new Geometry[count];
+        var length = Math.Sqrt(_focus.Width * _focus.Width + _focus.Height * _focus.Height);
+        var halfWidth = Math.PI / count * 0.55;
+        for (var i = 0; i < count; i++)
+        {
+            var angle = i * Math.PI * 2 / count;
             var geometry = new StreamGeometry();
-            using (var ctx = geometry.Open())
+            using (var c = geometry.Open())
             {
-                ctx.BeginFigure(_center, true, true);
-                ctx.LineTo(new Point(_center.X + Math.Cos(a - w) * length, _center.Y + Math.Sin(a - w) * length), false, false);
-                ctx.LineTo(new Point(_center.X + Math.Cos(a + w) * length, _center.Y + Math.Sin(a + w) * length), false, false);
+                c.BeginFigure(_center, true, true);
+                c.LineTo(new Point(_center.X + Math.Cos(angle - halfWidth) * length, _center.Y + Math.Sin(angle - halfWidth) * length), false, false);
+                c.LineTo(new Point(_center.X + Math.Cos(angle + halfWidth) * length, _center.Y + Math.Sin(angle + halfWidth) * length), false, false);
             }
             geometry.Freeze();
-            dc.DrawGeometry(GetBrush(Hsv(i * 40 + _time * 90), alpha * 0.14), null, geometry);
+            rays[i] = geometry;
         }
+        return rays;
     }
 
     private void DrawEagle(DrawingContext dc, Cue cue)
@@ -1088,7 +1271,7 @@ internal sealed class FireworksCanvas : FrameworkElement
 
         Point P(double px, double py) => new(x + px * size * dir, y + py * size);
 
-        StreamGeometry Shape(params Point[] points)
+        StreamGeometry Polygon(params Point[] points)
         {
             var g = new StreamGeometry();
             using (var ctx = g.Open())
@@ -1100,22 +1283,45 @@ internal sealed class FireworksCanvas : FrameworkElement
             return g;
         }
 
-        StreamGeometry Wing(double f) => Shape(
-            P(0.12, -0.02), P(-0.02, -0.45 * f), P(-0.28, -0.88 * f), P(-0.42, -0.84 * f), P(-0.36, -0.66 * f),
-            P(-0.5, -0.6 * f), P(-0.4, -0.46 * f), P(-0.54, -0.38 * f), P(-0.4, -0.26 * f), P(-0.5, -0.16 * f), P(-0.2, 0.04));
+        StreamGeometry Wing(double depth, bool rear)
+        {
+            var lift = -0.18 - flap * depth;
+            var g = new StreamGeometry();
+            using (var c = g.Open())
+            {
+                c.BeginFigure(P(-0.1, 0.02), true, true);
+                c.BezierTo(P(-0.16, lift * 0.55), P(-0.28, lift * 0.94), P(-0.5, lift), true, true);
+                c.LineTo(P(-0.72, lift * 0.88 + 0.02), true, false);
+                c.LineTo(P(-0.61, lift * 0.69 + 0.03), true, false);
+                c.LineTo(P(-0.78, lift * 0.57 + 0.05), true, false);
+                c.LineTo(P(-0.58, lift * 0.45 + 0.07), true, false);
+                c.LineTo(P(-0.7, lift * 0.3 + 0.09), true, false);
+                c.BezierTo(P(-0.43, lift * 0.18 + 0.1), P(-0.28, 0.1), P(-0.08, 0.12), true, true);
+            }
+            g.Freeze();
+            return g;
+        }
 
-        var glow = GetPen(FireworkShow.Gold, 0.55, 5);
-        var outline = GetPen(Color.FromRgb(255, 230, 150), 1, 1.6);
-        var brown = GetBrush(Color.FromRgb(92, 56, 24), 1);
-        var dark = GetBrush(Color.FromRgb(60, 36, 16), 1);
+        var glow = GetPen(FireworkShow.Gold, 0.35, 4);
+        var outline = GetPen(Color.FromRgb(235, 205, 135), 0.85, 1.25);
+        var brown = GetBrush(Color.FromRgb(103, 62, 27), 1);
+        var warmBrown = GetBrush(Color.FromRgb(132, 82, 34), 1);
+        var dark = GetBrush(Color.FromRgb(55, 34, 18), 1);
 
-        dc.DrawGeometry(dark, outline, Wing(flap * 0.75 - 0.15));
-        dc.DrawGeometry(brown, glow, Shape(P(-0.34, 0), P(-0.64, -0.1), P(-0.66, 0.12), P(-0.36, 0.08)));
-        dc.DrawEllipse(brown, glow, P(0, 0.02), size * 0.38, size * 0.11);
-        dc.DrawGeometry(brown, outline, Wing(flap));
-        dc.DrawEllipse(GetBrush(Colors.White, 1), outline, P(0.4, -0.06), size * 0.1, size * 0.09);
-        dc.DrawGeometry(GetBrush(Color.FromRgb(255, 200, 0), 1), null, Shape(P(0.47, -0.09), P(0.6, -0.03), P(0.47, -0.01)));
-        dc.DrawEllipse(GetBrush(Colors.Black, 1), null, P(0.43, -0.08), size * 0.015, size * 0.015);
+        // Far wing, layered tail feathers and a tapered body give the bird a readable silhouette.
+        dc.DrawGeometry(dark, outline, Wing(0.68, rear: true));
+        dc.DrawGeometry(dark, glow, Polygon(P(-0.27, -0.01), P(-0.67, -0.16), P(-0.57, 0), P(-0.72, 0.08), P(-0.32, 0.11)));
+        dc.DrawEllipse(brown, glow, P(-0.02, 0.025), size * 0.39, size * 0.115);
+        dc.DrawGeometry(warmBrown, outline, Wing(0.82, rear: false));
+
+        // Pale neck feathers transition into the white head rather than forming a single white dot.
+        dc.DrawGeometry(GetBrush(Color.FromRgb(235, 232, 211), 1), null,
+            Polygon(P(0.24, -0.07), P(0.31, -0.12), P(0.36, -0.08), P(0.39, -0.13), P(0.44, -0.08), P(0.38, 0.08), P(0.25, 0.1)));
+        dc.DrawEllipse(GetBrush(Color.FromRgb(244, 242, 224), 1), outline, P(0.42, -0.055), size * 0.105, size * 0.09);
+        dc.DrawGeometry(GetBrush(Color.FromRgb(242, 180, 20), 1), GetPen(Color.FromRgb(90, 55, 5), 0.8, 0.7),
+            Polygon(P(0.49, -0.075), P(0.64, -0.025), P(0.49, 0.005), P(0.53, -0.025)));
+        dc.DrawEllipse(GetBrush(Color.FromRgb(24, 18, 10), 1), null, P(0.445, -0.078), size * 0.013, size * 0.013);
+        dc.DrawEllipse(GetBrush(Colors.White, 0.9), null, P(0.45, -0.082), size * 0.004, size * 0.004);
     }
 
     private double TitleAlpha()

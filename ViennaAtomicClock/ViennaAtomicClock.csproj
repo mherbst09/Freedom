@@ -23,5 +23,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="app.ico" />
+    <InternalsVisibleTo Include="Freedom.Tests" />
   </ItemGroup>
 </Project>
