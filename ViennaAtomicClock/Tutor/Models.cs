@@ -21,7 +21,7 @@ public sealed class ChatMessage
 public sealed class TutorChat
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Title { get; set; } = "Neuer Chat";
+    public string Title { get; set; } = Loc.T("ai.newChatTitle");
     public string? Model { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime UpdatedAt { get; set; } = DateTime.Now;

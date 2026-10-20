@@ -285,7 +285,7 @@ internal static class ChibiPainter
 /// </summary>
 internal sealed class AnimeOverlay : AnimatedLayer
 {
-    private static readonly string[] Phrases = { "nya~ ♡", "Ganbatte! ✧", "Du schaffst das!", "Kawaii~", "Trink was! ☕", "Fast Pause! ♪", "(=^･ω･^=)" };
+    private static readonly string[] Phrases = { "nya~ ♡", "Ganbatte! ✧", "cheer", "Kawaii~", "drink", "break", "(=^･ω･^=)" };
 
     private sealed class Heart { public double X, Y, Vy, Age, Size; }
 
@@ -317,7 +317,14 @@ internal sealed class AnimeOverlay : AnimatedLayer
     private string Say()
     {
         var remark = Remark?.Invoke();
-        return remark is not null && Random.NextDouble() < 0.4 ? remark : Phrases[Random.Next(Phrases.Length)];
+        if (remark is not null && Random.NextDouble() < 0.4) return remark;
+        return Phrases[Random.Next(Phrases.Length)] switch
+        {
+            "cheer" => Loc.T("anime.cheer1"),
+            "drink" => Loc.T("anime.drink"),
+            "break" => Loc.T("anime.break"),
+            var phrase => phrase
+        };
     }
 
     protected override void Step(double dt)

@@ -15,6 +15,7 @@ public partial class App : Application
         base.OnStartup(e);
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         var settings = AppSettings.Load();
+        Loc.Apply(settings.Language);
         ApplyTheme(settings.Theme, settings.DarkMode, settings.ColorMode ? ParseColor(settings.CustomColor) : null);
     }
 

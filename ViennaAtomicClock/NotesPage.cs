@@ -54,14 +54,14 @@ internal sealed class NoteStore
 /// </summary>
 internal sealed class NotesPage : Grid
 {
-    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("de-AT");
+    private static CultureInfo Culture => Loc.Culture;
 
     // Colour tags work on every theme because they are only used as small stripes and dots.
     private static readonly (string Name, Color Color)[] Colors =
     {
-        ("Keine", System.Windows.Media.Colors.Transparent),
-        ("Gelb", Color.FromRgb(242, 201, 76)), ("Grün", Color.FromRgb(111, 207, 151)), ("Blau", Color.FromRgb(86, 170, 242)),
-        ("Rosa", Color.FromRgb(242, 140, 191)), ("Lila", Color.FromRgb(187, 107, 217))
+        ("notes.color.none", System.Windows.Media.Colors.Transparent),
+        ("notes.color.yellow", Color.FromRgb(242, 201, 76)), ("notes.color.green", Color.FromRgb(111, 207, 151)), ("notes.color.blue", Color.FromRgb(86, 170, 242)),
+        ("notes.color.pink", Color.FromRgb(242, 140, 191)), ("notes.color.purple", Color.FromRgb(187, 107, 217))
     };
 
     private readonly NoteStore _store = NoteStore.Load();
@@ -101,11 +101,15 @@ internal sealed class NotesPage : Grid
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var titles = new StackPanel();
-        titles.Children.Add(Ui.Text("NOTIZEN", 22, title: true));
+        var notesTitle = Ui.Text("", 22, title: true);
+        notesTitle.SetResourceReference(TextBlock.TextProperty, "L.notes.title");
+        titles.Children.Add(notesTitle);
         _count.Margin = new Thickness(0, 4, 0, 0);
         titles.Children.Add(_count);
         header.Children.Add(titles);
-        var add = Ui.Button("ActionButton", "＋ Neu", (_, _) => NewNote(), "Neue Notiz (Strg+N)");
+        var add = Ui.Button("ActionButton", "", (_, _) => NewNote());
+        add.SetResourceReference(ContentControl.ContentProperty, "L.notes.new");
+        add.SetResourceReference(ToolTipProperty, "L.notes.newTip");
         add.Height = 38;
         add.Padding = new Thickness(16, 0, 16, 0);
         add.VerticalAlignment = VerticalAlignment.Top;
@@ -114,7 +118,7 @@ internal sealed class NotesPage : Grid
         DockPanel.SetDock(header, Dock.Top);
         listPanel.Children.Add(header);
 
-        var (searchHost, searchBox) = Ui.Input("⌕  Notizen durchsuchen …");
+        var (searchHost, searchBox) = Ui.Input("", resourceKey: "L.notes.search");
         searchBox.TextChanged += (_, _) => { _search = searchBox.Text.Trim(); BuildList(); };
         searchHost.Margin = new Thickness(0, 14, 0, 12);
         DockPanel.SetDock(searchHost, Dock.Top);
@@ -129,13 +133,17 @@ internal sealed class NotesPage : Grid
         toolbar.ColumnDefinitions.Add(new ColumnDefinition());
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var tools = new StackPanel { Orientation = Orientation.Horizontal };
-        _pinButton = Ui.Button("ChipButton", "📌 Anheften", (_, _) => TogglePin(), "Oben anheften");
+        _pinButton = Ui.Button("ChipButton", "", (_, _) => TogglePin());
+        _pinButton.SetResourceReference(ToolTipProperty, "L.notes.pinTip");
         tools.Children.Add(_pinButton);
-        var check = Ui.Button("ChipButton", "☐ Checkliste", (_, _) => ToggleChecklistLine(), "Zeile abhakbar machen (Strg+L)");
+        var check = Ui.Button("ChipButton", "", (_, _) => ToggleChecklistLine());
+        check.SetResourceReference(ContentControl.ContentProperty, "L.notes.checklist");
+        check.SetResourceReference(ToolTipProperty, "L.notes.checklistTip");
         tools.Children.Add(check);
         tools.Children.Add(_colorDots);
         toolbar.Children.Add(tools);
-        var delete = Ui.Button("IconButton", "🗑", (_, _) => DeleteNote(), "Notiz löschen");
+        var delete = Ui.Button("IconButton", "🗑", (_, _) => DeleteNote());
+        delete.SetResourceReference(ToolTipProperty, "L.notes.deleteTip");
         delete.SetResourceReference(Control.ForegroundProperty, "OrangeBrush");
         Grid.SetColumn(delete, 2);
         toolbar.Children.Add(delete);
@@ -160,11 +168,13 @@ internal sealed class NotesPage : Grid
         var emptyIcon = Ui.Text("✎", 46, "AccentBrush");
         emptyIcon.HorizontalAlignment = HorizontalAlignment.Center;
         _empty.Children.Add(emptyIcon);
-        var emptyText = Ui.Text("Wähle links eine Notiz aus\noder leg eine neue an.", 14, "TextSecondary");
+        var emptyText = Ui.Text("", 14, "TextSecondary");
+        emptyText.SetResourceReference(TextBlock.TextProperty, "L.notes.pick");
         emptyText.TextAlignment = TextAlignment.Center;
         emptyText.Margin = new Thickness(0, 10, 0, 14);
         _empty.Children.Add(emptyText);
-        var emptyButton = Ui.Button("ActionButton", "＋ Neue Notiz", (_, _) => NewNote());
+        var emptyButton = Ui.Button("ActionButton", "", (_, _) => NewNote());
+        emptyButton.SetResourceReference(ContentControl.ContentProperty, "L.notes.newNote");
         _empty.Children.Add(emptyButton);
 
         var editorHost = new Grid();
@@ -178,6 +188,7 @@ internal sealed class NotesPage : Grid
         _selected = Sorted().FirstOrDefault()?.Id;
         BuildList();
         LoadEditor();
+        Loc.Changed += () => { BuildList(); if (Current is { } note) { UpdateMeta(note); UpdateToolbar(note); } };
     }
 
     public int Count => _store.Notes.Count;
@@ -264,7 +275,7 @@ internal sealed class NotesPage : Grid
     {
         if (Current is not { } note) return;
         if (note.Title.Length + note.Body.Length > 0 &&
-            MessageBox.Show($"Notiz „{(note.Title.Length > 0 ? note.Title : "Ohne Titel")}“ löschen?", "Notiz löschen",
+            MessageBox.Show(Loc.F("notes.deleteQ", note.Title.Length > 0 ? note.Title : Loc.T("notes.untitled")), Loc.T("notes.deleteTip"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         _store.Notes.Remove(note);
@@ -328,21 +339,21 @@ internal sealed class NotesPage : Grid
     {
         _list.Children.Clear();
         var notes = Sorted().Where(Matches).ToList();
-        _count.Text = _search.Length > 0 ? $"{notes.Count} Treffer" : _store.Notes.Count == 1 ? "1 Notiz" : $"{_store.Notes.Count} Notizen";
+        _count.Text = _search.Length > 0 ? Loc.F("notes.hits", notes.Count) : _store.Notes.Count == 1 ? Loc.T("notes.one") : Loc.F("notes.n", _store.Notes.Count);
 
         if (notes.Count == 0)
         {
-            var none = Ui.Text(_search.Length > 0 ? "Nichts gefunden." : "Noch keine Notizen.", 13, "TextSecondary");
+            var none = Ui.Text(Loc.T(_search.Length > 0 ? "notes.nothingFound" : "notes.none"), 13, "TextSecondary");
             none.Margin = new Thickness(4, 20, 0, 0);
             _list.Children.Add(none);
             return;
         }
 
         var pinned = notes.Where(n => n.Pinned).ToList();
-        if (pinned.Count > 0) _list.Children.Add(Section("📌 ANGEHEFTET"));
+        if (pinned.Count > 0) _list.Children.Add(Section(Loc.T("notes.pinnedSection")));
         foreach (var note in pinned) _list.Children.Add(NoteRow(note));
         var others = notes.Where(n => !n.Pinned).ToList();
-        if (pinned.Count > 0 && others.Count > 0) _list.Children.Add(Section("NOTIZEN"));
+        if (pinned.Count > 0 && others.Count > 0) _list.Children.Add(Section(Loc.T("notes.section")));
         foreach (var note in others) _list.Children.Add(NoteRow(note));
     }
 
@@ -370,7 +381,7 @@ internal sealed class NotesPage : Grid
         var titleRow = new Grid();
         titleRow.ColumnDefinitions.Add(new ColumnDefinition());
         titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        titleRow.Children.Add(Ui.Text(note.Title.Length > 0 ? note.Title : "Neue Notiz", 14, note.Title.Length > 0 ? "TextPrimary" : "TextMuted", bold: true));
+        titleRow.Children.Add(Ui.Text(note.Title.Length > 0 ? note.Title : Loc.T("notes.emptyTitle"), 14, note.Title.Length > 0 ? "TextPrimary" : "TextMuted", bold: true));
         var date = Ui.Text(DateLabel(note.Updated), 11, "TextMuted");
         date.Margin = new Thickness(8, 1, 0, 0);
         Grid.SetColumn(date, 1);
@@ -378,7 +389,7 @@ internal sealed class NotesPage : Grid
         texts.Children.Add(titleRow);
 
         var preview = string.Join(" ", note.Body.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(3)).Trim();
-        var previewText = Ui.Text(preview.Length > 0 ? preview : "Kein weiterer Text", 12, "TextSecondary");
+        var previewText = Ui.Text(preview.Length > 0 ? preview : Loc.T("notes.noText"), 12, "TextSecondary");
         previewText.TextTrimming = TextTrimming.CharacterEllipsis;
         previewText.TextWrapping = TextWrapping.Wrap;
         previewText.MaxHeight = 36;
@@ -396,9 +407,9 @@ internal sealed class NotesPage : Grid
         return days switch
         {
             0 => date.ToString("HH:mm", Culture),
-            1 => "Gestern",
+            1 => Loc.T("yesterday"),
             < 7 => date.ToString("dddd", Culture),
-            _ => date.ToString(date.Year == DateTime.Today.Year ? "d. MMM" : "d. M. yyyy", Culture)
+            _ => date.Year == DateTime.Today.Year ? date.ToString("M", Culture) : date.ToString("d", Culture)
         };
     }
 
@@ -422,13 +433,13 @@ internal sealed class NotesPage : Grid
         var words = note.Body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
         var open = note.Body.Split('\n').Count(l => l.StartsWith("☐"));
         var done = note.Body.Split('\n').Count(l => l.StartsWith("☑"));
-        var edited = note.Updated.Date == DateTime.Today ? $"heute {note.Updated:HH:mm}" : note.Updated.ToString("d. MMMM yyyy, HH:mm", Culture);
-        _meta.Text = $"Bearbeitet {edited}  ·  {words} {(words == 1 ? "Wort" : "Wörter")}" + (open + done > 0 ? $"  ·  {done}/{open + done} erledigt" : "");
+        var edited = note.Updated.Date == DateTime.Today ? Loc.F("notes.todayAt", note.Updated.ToString("HH:mm")) : note.Updated.ToString("g", Culture);
+        _meta.Text = $"{Loc.F("notes.edited", edited)}  ·  {words} {Loc.T(words == 1 ? "notes.word" : "notes.words")}" + (open + done > 0 ? "  ·  " + Loc.F("notes.checked", done, open + done) : "");
     }
 
     private void UpdateToolbar(Note note)
     {
-        _pinButton.Content = note.Pinned ? "📌 Angeheftet" : "📌 Anheften";
+        _pinButton.Content = Loc.T(note.Pinned ? "notes.pinned" : "notes.pin");
         Ui.Select(_pinButton, note.Pinned);
 
         _colorDots.Children.Clear();
@@ -438,7 +449,7 @@ internal sealed class NotesPage : Grid
             var dot = new Border
             {
                 Width = 20, Height = 20, CornerRadius = new CornerRadius(10), Margin = new Thickness(4, 0, 0, 0), Cursor = Cursors.Hand,
-                ToolTip = Colors[i].Name,
+                ToolTip = Loc.T(Colors[i].Name),
                 BorderThickness = new Thickness(note.Color == i ? 3 : 1.5),
                 Background = new SolidColorBrush(Colors[i].Color)
             };

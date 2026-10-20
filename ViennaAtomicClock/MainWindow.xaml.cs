@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     private readonly AppSettings _settings;
     private readonly CaffeineStore _caffeineStore;
     private readonly TimeZoneInfo _viennaZone;
-    private readonly CultureInfo _culture = CultureInfo.GetCultureInfo("de-AT");
+    private static CultureInfo _culture => Loc.Culture;
     private CancellationTokenSource? _syncCancellation;
     private bool _focusMode;
     private WindowState _previousWindowState;
@@ -25,9 +25,10 @@ public partial class MainWindow : Window
     private bool _previousTopmost;
     private string _page = "clock";
     private bool _pickingColor;
+    private bool _syncing;
     private bool _showingCaffeine => _page == "caffeine";
     private string _selectedCategory = "Alle";
-    private string _clockHeaderStatus = "Synchronisiere …";
+    private string _clockHeaderStatus = Loc.T("sync.syncing");
     private string? _clockHeaderForeground;
     private string? _clockHeaderBackground;
     private int _lastTrackerRefreshMinute = -1;
@@ -58,13 +59,15 @@ public partial class MainWindow : Window
             _pickingColor = false;
         };
         ThemeColorPicker.ColorCommitted += color => SetLook(App.ThemeName, true, color);
-        AnimeTop.Remark = () => _page == "clock" && LessonLabelText.Text == "Stunde endet in" && LessonCountdownText.Text.Length >= 5
-            ? $"Noch {LessonCountdownText.Text[..2].TrimStart('0').PadLeft(1, '0')} min! ♡"
+        AnimeTop.Remark = () => _page == "clock" && LessonLabelText.Text == Loc.T("lesson.endsIn") && LessonCountdownText.Text.Length >= 5
+            ? Loc.F("anime.minutes", LessonCountdownText.Text[..2].TrimStart('0').PadLeft(1, '0'))
             : null;
         AnimeTop.SeatAnchor = () => ClockPage.IsVisible && ClockCard.IsVisible
             ? ClockCard.TransformToAncestor(WindowShell).TransformBounds(new Rect(ClockCard.RenderSize))
             : null;
         ApplyThemeVisuals();
+        SettingsPanel.Width = Math.Max(SettingsPanel.MinWidth, _settings.SettingsWidth);
+        SettingsPanel.Height = Math.Max(SettingsPanel.MinHeight, _settings.SettingsHeight);
         TodoView.Changed += () => { if (_page == "todo") UpdateHeaderForCurrentPage(); };
         NotesView.Changed += () => { if (_page == "notes") UpdateHeaderForCurrentPage(); };
 
@@ -113,6 +116,8 @@ public partial class MainWindow : Window
 
         PreviewKeyDown += MainWindow_PreviewKeyDown;
         SizeChanged += (_, _) => ApplyResponsiveLayout();
+        Loc.Changed += OnLanguageChanged;
+        OnLanguageChanged();
     }
 
     /// <summary>Rearranges and rescales the pages for anything from a small side window to a fullscreen beamer.</summary>
@@ -203,12 +208,12 @@ public partial class MainWindow : Window
 
         MainTimeText.Text = vienna.ToString("HH:mm:ss", _culture);
         MicrosecondsText.Text = $".{microseconds:000000}";
-        DateText.Text = vienna.ToString("dddd, d. MMMM yyyy", _culture);
+        DateText.Text = vienna.ToString("D", _culture);
         SecondProgress.ScaleX = (vienna.Second + vienna.Millisecond / 1000.0) / 60.0;
 
         var offset = _viennaZone.GetUtcOffset(vienna.DateTime);
         UtcOffsetBadge.Text = $"UTC{(offset < TimeSpan.Zero ? "−" : "+")}{offset.Duration():hh\\:mm}";
-        DstText.Text = _viennaZone.IsDaylightSavingTime(vienna.DateTime) ? "Sommerzeit (MESZ)" : "Normalzeit (MEZ)";
+        DstText.Text = Loc.T(_viennaZone.IsDaylightSavingTime(vienna.DateTime) ? "clock.dst" : "clock.std");
 
         CheckFireworks(vienna.DateTime);
 
@@ -261,7 +266,7 @@ public partial class MainWindow : Window
             {
                 var pause = new TextBlock
                 {
-                    Text = $"☕  {(lesson.Start - previous.End).TotalMinutes:0} min Pause",
+                    Text = "☕  " + Loc.F("pause.min", (lesson.Start - previous.End).TotalMinutes.ToString("0")),
                     FontSize = 12,
                     Margin = new Thickness(14, 2, 0, 6)
                 };
@@ -320,52 +325,52 @@ public partial class MainWindow : Window
         {
             case SchoolPhase.Lesson:
                 var lesson = state.Current!;
-                LessonBadgeText.Text = $"{lesson.Number}. STUNDE";
+                LessonBadgeText.Text = Loc.F("lesson.badge", lesson.Number);
                 LessonRangeText.Text = $"{lesson.Start:hh\\:mm} – {lesson.End:hh\\:mm}{SlotLabel(now.Date, lesson, " · ")}";
-                LessonOfDayText.Text = $"Stunde {todayLessons.IndexOf(lesson) + 1} von {lessonCount}";
-                LessonLabelText.Text = "Stunde endet in";
+                LessonOfDayText.Text = Loc.F("lesson.ofDay", todayLessons.IndexOf(lesson) + 1, lessonCount);
+                LessonLabelText.Text = Loc.T("lesson.endsIn");
                 LessonNextText.Text = state.Next is { } next
                     ? next.Start - lesson.End > TimeSpan.FromMinutes(5)
-                        ? $"Danach {(next.Start - lesson.End).TotalMinutes:0} min Pause · {next.Number}. Stunde{SlotLabel(now.Date, next, " ")} ab {next.Start:hh\\:mm}"
-                        : $"Danach {next.Number}. Stunde{SlotLabel(now.Date, next, " ")} ab {next.Start:hh\\:mm}"
-                    : "Danach: Schulschluss 🎉";
+                        ? Loc.F("lesson.afterPause", (next.Start - lesson.End).TotalMinutes.ToString("0"), Loc.F("lesson.n", next.Number) + SlotLabel(now.Date, next, " "), next.Start.ToString("hh\\:mm"))
+                        : Loc.F("lesson.afterNext", Loc.F("lesson.n", next.Number) + SlotLabel(now.Date, next, " "), next.Start.ToString("hh\\:mm"))
+                    : Loc.T("lesson.afterEnd");
                 // Last five minutes: the countdown turns orange.
                 if (remaining <= TimeSpan.FromMinutes(5)) accent = "OrangeBrush";
                 break;
 
             case SchoolPhase.Break:
-                LessonBadgeText.Text = "PAUSE";
+                LessonBadgeText.Text = Loc.T("badge.pause");
                 LessonRangeText.Text = $"{state.Current!.End:hh\\:mm} – {state.Next!.Start:hh\\:mm}";
-                LessonOfDayText.Text = $"{todayLessons.IndexOf(state.Current) + 1} von {lessonCount} geschafft";
-                LessonLabelText.Text = "Nächste Stunde in";
-                LessonNextText.Text = $"{state.Next.Number}. Stunde{SlotLabel(now.Date, state.Next, " · ")} · {state.Next.Start:hh\\:mm} – {state.Next.End:hh\\:mm}";
+                LessonOfDayText.Text = Loc.F("lesson.done", todayLessons.IndexOf(state.Current) + 1, lessonCount);
+                LessonLabelText.Text = Loc.T("lesson.nextIn");
+                LessonNextText.Text = $"{Loc.F("lesson.n", state.Next.Number)}{SlotLabel(now.Date, state.Next, " · ")} · {state.Next.Start:hh\\:mm} – {state.Next.End:hh\\:mm}";
                 accent = "GreenBrush";
                 soft = "GreenSoft";
                 break;
 
             case SchoolPhase.BeforeSchool:
-                LessonBadgeText.Text = "VOR UNTERRICHT";
+                LessonBadgeText.Text = Loc.T("badge.before");
                 LessonRangeText.Text = "";
-                LessonOfDayText.Text = $"{lessonCount} Stunden heute";
-                LessonLabelText.Text = "Unterricht beginnt in";
-                LessonNextText.Text = $"{state.Next!.Number}. Stunde{SlotLabel(now.Date, state.Next, " · ")} · {state.Next.Start:hh\\:mm} – {state.Next.End:hh\\:mm}";
+                LessonOfDayText.Text = Loc.F("lesson.count", lessonCount);
+                LessonLabelText.Text = Loc.T("lesson.startsIn");
+                LessonNextText.Text = $"{Loc.F("lesson.n", state.Next!.Number)}{SlotLabel(now.Date, state.Next, " · ")} · {state.Next.Start:hh\\:mm} – {state.Next.End:hh\\:mm}";
                 accent = "OrangeBrush";
                 break;
 
             default:
                 var weekend = state.Phase == SchoolPhase.Weekend;
                 var realWeekend = now.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
-                LessonBadgeText.Text = weekend ? (realWeekend ? "WOCHENENDE" : "UNTERRICHTSFREI") : "SCHULSCHLUSS";
+                LessonBadgeText.Text = Loc.T(weekend ? (realWeekend ? "badge.weekend" : "badge.free") : "badge.end");
                 LessonRangeText.Text = "";
-                LessonOfDayText.Text = weekend ? "" : $"{lessonCount} von {lessonCount} geschafft";
-                LessonLabelText.Text = weekend ? (realWeekend ? "Schönes Wochenende!" : "Heute kein Unterricht") : "Geschafft für heute 🎉";
-                LessonNextText.Text = $"Weiter am {state.PhaseEnd.ToString("dddd", _culture)} um {state.PhaseEnd:HH\\:mm}";
+                LessonOfDayText.Text = weekend ? "" : Loc.F("lesson.done", lessonCount, lessonCount);
+                LessonLabelText.Text = Loc.T(weekend ? (realWeekend ? "label.weekend" : "label.free") : "label.end");
+                LessonNextText.Text = Loc.F("label.continue", state.PhaseEnd.ToString("dddd", _culture), state.PhaseEnd.ToString("HH\\:mm"));
                 accent = "GreenBrush";
                 soft = "GreenSoft";
                 break;
         }
 
-        LessonCountdownText.Text = state.Phase is SchoolPhase.AfterSchool or SchoolPhase.Weekend ? "frei" : FormatCountdown(remaining);
+        LessonCountdownText.Text = state.Phase is SchoolPhase.AfterSchool or SchoolPhase.Weekend ? Loc.T("free") : FormatCountdown(remaining);
         LessonCountdownText.SetResourceReference(TextBlock.ForegroundProperty, accent);
         LessonProgressFill.SetResourceReference(Border.BackgroundProperty, accent);
         LessonBadge.SetResourceReference(Border.BackgroundProperty, soft);
@@ -395,11 +400,11 @@ public partial class MainWindow : Window
         _scheduleKey = key;
 
         var dayName = day == now.Date ? day.ToString("dddd", _culture)
-            : day == now.Date.AddDays(1) ? "Morgen" : day.ToString("dddd, d. M.", _culture);
+            : day == now.Date.AddDays(1) ? Loc.T("tomorrow") : $"{day.ToString("dddd", _culture)}, {day.ToString("M", _culture)}";
         var covered = _timetable?.Covers(day) == true;
         var source = covered
-            ? $"{WebUntisTimetable.ClassName} · Stand {_timetable!.FetchedAt:HH\\:mm}{(_timetableOffline ? " (offline)" : "")}"
-            : _timetableLoading ? "Stundenplan wird geladen …" : "feste Zeiten (kein Stundenplan)";
+            ? $"{WebUntisTimetable.ClassName} · {Loc.F("schedule.stand", _timetable!.FetchedAt.ToString("HH\\:mm"))}{(_timetableOffline ? Loc.T("schedule.offline") : "")}"
+            : Loc.T(_timetableLoading ? "schedule.loading" : "schedule.fixed");
         ScheduleSubtitleText.Text = $"{dayName} · {source}";
 
         var entries = covered ? _timetable!.On(day, _settings.TimetableGroup) : new List<TimetableEntry>();
@@ -437,7 +442,7 @@ public partial class MainWindow : Window
             }
             else
             {
-                subject.Inlines.Add(new Run(free ? "frei" : ""));
+                subject.Inlines.Add(new Run(free ? Loc.T("free") : ""));
                 row.ToolTip = null;
             }
             subject.SetResourceReference(TextBlock.ForegroundProperty, free ? "TextMuted" : "TextPrimary");
@@ -451,18 +456,18 @@ public partial class MainWindow : Window
             if (isCurrent)
             {
                 row.SetResourceReference(Border.BackgroundProperty, "AccentSoft");
-                SetStatus(status, "● jetzt", "AccentBrush");
+                SetStatus(status, Loc.T("status.now"), "AccentBrush");
             }
             else if (cancelled && !isDone)
-                SetStatus(status, "Entfall", "OrangeBrush");
+                SetStatus(status, Loc.T("status.cancelled"), "OrangeBrush");
             else if (exam && !isDone)
-                SetStatus(status, "Test", "OrangeBrush");
+                SetStatus(status, Loc.T("status.test"), "OrangeBrush");
             else if (changed && !isDone)
-                SetStatus(status, "Vertretung", "OrangeBrush");
+                SetStatus(status, Loc.T("status.subst"), "OrangeBrush");
             else if (isUpcoming)
             {
                 row.SetResourceReference(Border.BorderBrushProperty, "GreenBrush");
-                SetStatus(status, "als Nächstes", "GreenBrush");
+                SetStatus(status, Loc.T("status.next"), "GreenBrush");
             }
             else if (isDone && !free)
                 SetStatus(status, "✓", "TextMuted");
@@ -492,7 +497,7 @@ public partial class MainWindow : Window
         var slot = _timetable.On(date, _settings.TimetableGroup)
             .Where(e => e.Status != EntryStatus.Cancelled && e.Start < lesson.End && e.End > lesson.Start).ToList();
         if (slot.Count == 0) return "";
-        return prefix + string.Join(" / ", slot.Select(e => e.Room.Length > 0 ? $"{e.Subject} in {e.Room}" : e.Subject));
+        return prefix + string.Join(" / ", slot.Select(e => e.Room.Length > 0 ? Loc.F("slot.in", e.Subject, e.Room) : e.Subject));
     }
 
     private async Task RefreshTimetableAsync(bool force, CancellationToken cancellation)
@@ -532,7 +537,7 @@ public partial class MainWindow : Window
     }
 
     private void UpdateGroupButton() =>
-        GroupButton.Content = _settings.TimetableGroup == 0 ? "Gruppe: beide" : $"Gruppe {_settings.TimetableGroup}";
+        GroupButton.Content = _settings.TimetableGroup == 0 ? Loc.T("group.both") : Loc.F("group.n", _settings.TimetableGroup);
 
     private async Task SynchronizeAsync()
     {
@@ -540,9 +545,10 @@ public partial class MainWindow : Window
 
         _syncCancellation = new CancellationTokenSource();
         SyncButton.IsEnabled = false;
-        SyncButton.Content = "↻  Läuft …";
-        SyncStatusText.Text = "Verbindung …";
-        _clockHeaderStatus = "Synchronisiere …";
+        _syncing = true;
+        SyncButton.Content = Loc.T("sync.running");
+        SyncStatusText.Text = Loc.T("sync.connecting");
+        _clockHeaderStatus = Loc.T("sync.syncing");
         if (_page == "clock") HeaderStatusText.Text = _clockHeaderStatus;
 
         try
@@ -555,17 +561,17 @@ public partial class MainWindow : Window
                 OffsetText.Text = FormatOffset(result.Offset);
                 LatencyText.Text = $"{result.RoundTrip.TotalMilliseconds:0.0} ms";
                 LastSyncText.Text = TimeZoneInfo.ConvertTime(result.CorrectedUtc, _viennaZone).ToString("HH:mm:ss", _culture);
-                SyncStatusText.Text = "Synchronisiert";
-                SetClockStatus("NTP synchronisiert", "GreenBrush", "GreenSoft");
+                SyncStatusText.Text = Loc.T("sync.ok");
+                SetClockStatus(Loc.T("sync.headerOk"), "GreenBrush", "GreenSoft");
             }
             else
             {
                 _clock.Set(DateTimeOffset.UtcNow);
-                SourceText.Text = "Windows-Systemzeit";
-                OffsetText.Text = "nicht verfügbar";
+                SourceText.Text = Loc.T("sync.system");
+                OffsetText.Text = Loc.T("sync.na");
                 LatencyText.Text = "— ms";
-                SyncStatusText.Text = "Offline-Modus";
-                SetClockStatus("Systemzeit", "OrangeBrush", "AccentSoft");
+                SyncStatusText.Text = Loc.T("sync.offline");
+                SetClockStatus(Loc.T("sync.headerSystem"), "OrangeBrush", "AccentSoft");
             }
         }
         catch (OperationCanceledException)
@@ -588,7 +594,8 @@ public partial class MainWindow : Window
             _syncCancellation?.Dispose();
             _syncCancellation = null;
             SyncButton.IsEnabled = true;
-            SyncButton.Content = "↻  Synchronisieren";
+            _syncing = false;
+            SyncButton.Content = Loc.T("sync.button");
         }
     }
 
@@ -672,6 +679,7 @@ public partial class MainWindow : Window
         AmericaLayer.Visibility = theme == Themes.America ? Visibility.Visible : Visibility.Collapsed;
         MinecraftLayer.Visibility = theme == Themes.Minecraft ? Visibility.Visible : Visibility.Collapsed;
         MinecraftTop.Visibility = theme == Themes.Minecraft ? Visibility.Visible : Visibility.Collapsed;
+        EagleLayer.Visibility = theme == Themes.Eagle ? Visibility.Visible : Visibility.Collapsed;
 
         var accent = ((SolidColorBrush)FindResource("AccentBrush")).Color;
         MainTimeText.Effect = theme switch
@@ -682,14 +690,15 @@ public partial class MainWindow : Window
             Themes.America => new System.Windows.Media.Effects.DropShadowEffect { Color = Color.FromRgb(10, 31, 68), BlurRadius = 0, ShadowDepth = 4, Direction = 315, Opacity = App.IsDark ? 0.9 : 0.35 },
             // Hard pixel shadow like game text.
             Themes.Minecraft => new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 0, ShadowDepth = 5, Direction = 315, Opacity = 0.6 },
-            _ => App.CustomColor is not null ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.45 } : null
+            Themes.Eagle => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 24, ShadowDepth = 0, Opacity = App.IsDark ? 0.6 : 0.35 },
+            _ => App.CustomColor is not null && theme != Themes.Standard ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.45 } : null
         };
         LessonCountdownText.Effect = theme == Themes.Hacker && App.IsDark
             ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 14, ShadowDepth = 0, Opacity = 0.8 }
             : null;
         AppSwitcherButton.Content = theme switch
         {
-            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", _ => "⊞"
+            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", Themes.Eagle => "✦", _ => "⊞"
         };
         AppSwitcherButton.FontSize = theme == Themes.Hacker ? 17 : 22;
 
@@ -702,6 +711,7 @@ public partial class MainWindow : Window
     {
         var radius = _focusMode ? 0 : Themes.WindowRadius(App.ThemeName);
         WindowShell.CornerRadius = new CornerRadius(radius);
+        WindowShadow.CornerRadius = new CornerRadius(radius);
         var inner = Math.Max(0, radius - 1);
         FilmGrain.Radius = inner;
         HackerRainLayer.Radius = inner;
@@ -712,6 +722,7 @@ public partial class MainWindow : Window
         AmericaLayer.Radius = inner;
         MinecraftLayer.Radius = inner;
         MinecraftTop.Radius = inner;
+        EagleLayer.Radius = inner;
     }
 
     private void UpdateTitleTexts()
@@ -720,36 +731,36 @@ public partial class MainWindow : Window
         if (_page == "tutor")
         {
             AppTitleText.Text = theme switch { Themes.Hacker => "EAGLE_1.1_", Themes.Anime => "Eagle 1.1 ♡", _ => "EAGLE 1.1" };
-            AppSubtitleText.Text = "AI · lokal über Ollama · ohne Cloud";
+            AppSubtitleText.Text = Loc.T("title.ai.sub");
         }
         else if (_page == "todo")
         {
-            AppTitleText.Text = theme switch { Themes.Hacker => "TODO.SH_", Themes.Anime => "Aufgaben ♡", _ => "AUFGABEN" };
+            AppTitleText.Text = theme switch { Themes.Hacker => "TODO.SH_", Themes.Anime => Loc.T("window.todo") + " ♡", _ => Loc.T("title.todo") };
             AppSubtitleText.Text = theme switch
             {
                 Themes.Hacker => "root@freedom:~$ todo --list",
-                Themes.Anime => "nya~ eins nach dem anderen!",
-                _ => "Befehle für heute · lokal gespeichert"
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.todo.sub"),
+                _ => Loc.T("title.todo.sub")
             };
         }
         else if (_page == "notes")
         {
-            AppTitleText.Text = theme switch { Themes.Hacker => "NOTES.TXT_", Themes.Anime => "Notizen ♡", _ => "NOTIZEN" };
+            AppTitleText.Text = theme switch { Themes.Hacker => "NOTES.TXT_", Themes.Anime => Loc.T("window.notes") + " ♡", _ => Loc.T("title.notes") };
             AppSubtitleText.Text = theme switch
             {
                 Themes.Hacker => "root@freedom:~$ vim notes",
-                Themes.Anime => "nya~ Gedanken sammeln",
-                _ => "Feldtagebuch · automatisch gespeichert"
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.notes.sub"),
+                _ => Loc.T("title.notes.sub")
             };
         }
         else if (_showingCaffeine)
         {
-            AppTitleText.Text = theme switch { Themes.Hacker => "CAFFEINE.EXE_", Themes.Anime => "Koffein ♡", _ => "CAFFEINE TRACKER" };
+            AppTitleText.Text = theme switch { Themes.Hacker => "CAFFEINE.EXE_", Themes.Anime => Loc.T("tile.coffee") + " ♡", _ => Loc.T("title.coffee") };
             AppSubtitleText.Text = theme switch
             {
                 Themes.Hacker => "root@freedom:~$ track --caffeine",
-                Themes.Anime => "nya~ wie viel Energie heute?",
-                _ => "Koffein im Blick · lokal gespeichert"
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.coffee.sub"),
+                _ => Loc.T("title.coffee.sub")
             };
         }
         else
@@ -758,11 +769,11 @@ public partial class MainWindow : Window
             AppSubtitleText.Text = theme switch
             {
                 Themes.Hacker => "root@freedom:~$ sync --time --timetable",
-                Themes.Anime => "nya~ Atomzeit & Stundenplan ฅ^•ﻌ•^ฅ",
-                Themes.Tetris => "LEVEL 4BHITS · Atomzeit & Stundenplan",
+                Themes.Anime => "nya~ ฅ^•ﻌ•^ฅ " + Loc.T("title.clock.sub"),
+                Themes.Tetris => "LEVEL 4BHITS · " + Loc.T("title.clock.sub"),
                 Themes.America => "Land of the free · Home of the Stundenplan",
-                Themes.Minecraft => "Survival-Modus · Atomzeit & Stundenplan",
-                _ => "Atomzeit · Stundenplan · Wien"
+                Themes.Minecraft => "Survival · " + Loc.T("title.clock.sub"),
+                _ => Loc.T("title.clock.sub")
             };
         }
     }
@@ -776,37 +787,121 @@ public partial class MainWindow : Window
         ColorPickerHost.Visibility = colored ? Visibility.Visible : Visibility.Collapsed;
         if (colored && !_pickingColor) ThemeColorPicker.Color = App.CustomColor!.Value;
 
+        LanguageList.Children.Clear();
+        foreach (var (code, name, _) in Loc.Languages)
+        {
+            var chip = new Button { Content = name, Height = 34, Margin = new Thickness(0, 0, 6, 6), Padding = new Thickness(12, 0, 12, 0) };
+            chip.SetResourceReference(StyleProperty, "ChipButton");
+            SetChip(chip, code == Loc.Language);
+            chip.Click += (_, _) => SetLanguage(code);
+            LanguageList.Children.Add(chip);
+        }
+
         ThemeList.Children.Clear();
-        foreach (var (id, label, glyph, hint) in Themes.All)
+        foreach (var (id, _, glyph, _) in Themes.All)
         {
             var selected = id == App.ThemeName;
-            var content = new Grid();
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            var icon = new TextBlock { Text = glyph, FontSize = 20, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
-            var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            texts.Children.Add(new TextBlock { Text = label + (selected ? "  ✓" : ""), FontWeight = FontWeights.Bold, FontSize = 13 });
-            var hintText = new TextBlock { Text = hint, FontSize = 10.5, TextTrimming = TextTrimming.CharacterEllipsis };
+
+            // Faded preview of the theme behind the name, so you can see what to expect.
+            var preview = new Border { Background = ThemePreview.Create(id, App.IsDark), Opacity = 0.6 };
+            preview.SetResourceReference(Border.CornerRadiusProperty, "CardRadius");
+
+            var label = new Border { VerticalAlignment = VerticalAlignment.Bottom, Padding = new Thickness(10, 6, 10, 6) };
+            label.SetResourceReference(Border.BackgroundProperty, "PopupBrush");
+            label.Opacity = 0.92;
+            var texts = new StackPanel();
+            texts.Children.Add(new TextBlock
+            {
+                Text = $"{glyph}  {Loc.T("theme." + id)}{(selected ? "  ✓" : "")}",
+                FontWeight = FontWeights.SemiBold, FontSize = 13, TextTrimming = TextTrimming.CharacterEllipsis
+            });
+            var hintText = new TextBlock { Text = Loc.T("theme." + id + ".hint"), FontSize = 10.5, TextTrimming = TextTrimming.CharacterEllipsis };
             hintText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondary");
             texts.Children.Add(hintText);
-            Grid.SetColumn(texts, 1);
-            content.Children.Add(icon);
-            content.Children.Add(texts);
+            label.Child = texts;
+
+            var tile = new Grid { ClipToBounds = true };
+            tile.Children.Add(preview);
+            tile.Children.Add(label);
 
             var button = new Button
             {
-                Content = content,
-                Height = 56,
-                Margin = new Thickness(0, 0, 6, 6),
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(8, 0, 12, 0),
-                Tag = id
+                Content = tile, Height = 104, Margin = new Thickness(0, 0, 8, 8), Padding = new Thickness(0),
+                HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch,
+                BorderThickness = new Thickness(selected ? 2 : 1), Tag = id
             };
             button.SetResourceReference(StyleProperty, "SecondaryButton");
             button.SetResourceReference(BackgroundProperty, selected ? "AccentSoft" : "SurfaceAlt");
+            // The button template ignores borders, so the selection ring is drawn around the tile.
+            if (selected)
+            {
+                var ring = new Border { BorderThickness = new Thickness(2) };
+                ring.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
+                ring.SetResourceReference(Border.CornerRadiusProperty, "CardRadius");
+                tile.Children.Add(ring);
+            }
+            // The shared button template centres its content, so the tile is sized to fill the button by hand.
+            button.SizeChanged += (_, _) => { tile.Width = button.ActualWidth; tile.Height = button.ActualHeight; };
             button.Click += (_, _) => SetLook(id, _settings.DarkMode, App.CustomColor);
             ThemeList.Children.Add(button);
         }
+    }
+
+    private void SetLanguage(string code)
+    {
+        _settings.Language = code;
+        _settings.Save();
+        Loc.Apply(code);
+    }
+
+    /// <summary>Re-renders every text that code builds when the language changes (XAML texts update by themselves).</summary>
+    private void OnLanguageChanged()
+    {
+        Language = System.Windows.Markup.XmlLanguage.GetLanguage(Loc.Culture.IetfLanguageTag);
+        _clockHeaderStatus = Loc.Retranslate(_clockHeaderStatus, "sync.headerOk", "sync.headerSystem", "sync.syncing");
+        SyncStatusText.Text = Loc.Retranslate(SyncStatusText.Text, "sync.ok", "sync.offline", "sync.connecting", "sync.checking");
+        SourceText.Text = Loc.Retranslate(SourceText.Text, "sync.system");
+        OffsetText.Text = Loc.Retranslate(OffsetText.Text, "sync.na");
+        UpdateTitleTexts();
+        UpdateHeaderForCurrentPage();
+        UpdateGroupButton();
+        UpdateSettingsPopup();
+        PinButton.ToolTip = Loc.T(Topmost ? "tip.unpin" : "tip.pin");
+        if (!_syncing) SyncButton.Content = Loc.T("sync.button");
+        BuildScheduleList();
+        RefreshProducts();
+        RefreshCaffeineSummary();
+        _scheduleKey = "";
+        _lastSchoolSecond = -1;
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
+    }
+
+    private void SettingsPanel_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ThemeList.Columns = SettingsPanel.ActualWidth >= 640 ? 3 : 2;
+
+    private void SettingsExpand_Click(object sender, RoutedEventArgs e)
+    {
+        // Toggle between the compact panel and a large one that uses most of the window.
+        var large = SettingsPanel.Width < 600;
+        SettingsPanel.Width = large ? Math.Max(400, Math.Min(820, ActualWidth - 120)) : 400;
+        SettingsPanel.Height = large ? Math.Max(380, Math.Min(760, ActualHeight - 140)) : 640;
+        SettingsExpandButton.Content = large ? "⤡" : "⤢";
+        RememberSettingsSize();
+    }
+
+    private void SettingsClose_Click(object sender, RoutedEventArgs e) => SettingsPopup.IsOpen = false;
+
+    private void SettingsResize_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        SettingsPanel.Width = Math.Clamp(SettingsPanel.Width + e.HorizontalChange, SettingsPanel.MinWidth, Math.Max(SettingsPanel.MinWidth, SystemParameters.WorkArea.Width - 80));
+        SettingsPanel.Height = Math.Clamp(SettingsPanel.Height + e.VerticalChange, SettingsPanel.MinHeight, Math.Max(SettingsPanel.MinHeight, SystemParameters.WorkArea.Height - 120));
+        RememberSettingsSize();
+    }
+
+    private void RememberSettingsSize()
+    {
+        _settings.SettingsWidth = SettingsPanel.Width;
+        _settings.SettingsHeight = SettingsPanel.Height;
     }
 
     private void SetChip(Button button, bool selected)
@@ -819,7 +914,7 @@ public partial class MainWindow : Window
     {
         Topmost = !Topmost;
         PinButton.Foreground = Topmost ? (Brush)FindResource("AccentBrush") : (Brush)FindResource("TextSecondary");
-        PinButton.ToolTip = Topmost ? "Vordergrundmodus deaktivieren" : "Immer im Vordergrund";
+        PinButton.ToolTip = Loc.T(Topmost ? "tip.unpin" : "tip.pin");
     }
 
     private async void SyncButton_Click(object sender, RoutedEventArgs e)
@@ -843,6 +938,7 @@ public partial class MainWindow : Window
             // borderless window only fills the work area, so the bounds are set by hand.
             var screen = FireworksWindow.MonitorArea(this);
             WindowShell.Margin = new Thickness(0);
+            WindowShadow.Margin = new Thickness(0);
             WindowShell.CornerRadius = new CornerRadius(0);
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Normal;
@@ -867,6 +963,7 @@ public partial class MainWindow : Window
             WindowState = _previousWindowState;
             WindowStyle = _previousWindowStyle;
             WindowShell.Margin = new Thickness(14);
+            WindowShadow.Margin = new Thickness(14);
             _focusMode = false;
             ApplyShellRadius();
         }
@@ -971,7 +1068,7 @@ public partial class MainWindow : Window
         NotesView.Visibility = _page == "notes" ? Visibility.Visible : Visibility.Collapsed;
         TutorView.Visibility = _page == "tutor" ? Visibility.Visible : Visibility.Collapsed;
         UpdateTitleTexts();
-        Title = _page switch { "caffeine" => "Caffeine Tracker", "todo" => "Aufgaben", "notes" => "Notizen", "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
         _settings.ActivePage = _page;
         UpdateNavigationVisuals();
         UpdateHeaderForCurrentPage();
@@ -997,18 +1094,18 @@ public partial class MainWindow : Window
         }
         else if (_page == "todo")
         {
-            HeaderStatusText.Text = TodoView.TodayCount > 0 ? $"{TodoView.OpenCount} offen · {TodoView.TodayCount} heute" : $"{TodoView.OpenCount} offen";
+            HeaderStatusText.Text = TodoView.TodayCount > 0 ? Loc.F("todo.headerToday", TodoView.OpenCount, TodoView.TodayCount) : Loc.F("todo.headerOpen", TodoView.OpenCount);
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
         }
         else if (_page == "notes")
         {
-            HeaderStatusText.Text = NotesView.Count == 1 ? "1 Notiz" : $"{NotesView.Count} Notizen";
+            HeaderStatusText.Text = NotesView.Count == 1 ? Loc.T("notes.one") : Loc.F("notes.n", NotesView.Count);
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
         }
         else if (_showingCaffeine)
         {
             var total = GetTodayEntries().Sum(e => e.CaffeineMg);
-            HeaderStatusText.Text = $"Heute {total} mg";
+            HeaderStatusText.Text = Loc.F("coffee.header", total);
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
         }
         else
@@ -1062,7 +1159,7 @@ public partial class MainWindow : Window
 
         ProductsItemsControl.ItemsSource = products;
         if (CatalogCountText is not null)
-            CatalogCountText.Text = $"{products.Count} von {CaffeineCatalog.Products.Count} Produkten";
+            CatalogCountText.Text = Loc.F("coffee.count", products.Count, CaffeineCatalog.Products.Count);
     }
 
     private void AddProductButton_Click(object sender, RoutedEventArgs e)
@@ -1116,38 +1213,38 @@ public partial class MainWindow : Window
             .Sum(entry => entry.CaffeineMg * Math.Pow(0.5, (now - entry.ConsumedAt).TotalHours / 5.0));
 
         var viennaNow = TimeZoneInfo.ConvertTime(now, _viennaZone);
-        TrackerDateText.Text = viennaNow.ToString("dddd, d. MMMM", _culture);
+        TrackerDateText.Text = $"{viennaNow.ToString("dddd", _culture)}, {viennaNow.ToString("M", _culture)}";
         CaffeineTotalText.Text = total.ToString(_culture);
         ActiveCaffeineText.Text = $"{active:0} mg";
         RemainingCaffeineText.Text = $"{Math.Max(0, limit - total)} mg";
         DailyLimitTextBox.Text = limit.ToString(_culture);
-        EntryCountText.Text = entries.Count == 0 ? "Noch keine Einträge" : entries.Count == 1 ? "1 Eintrag heute" : $"{entries.Count} Einträge heute";
+        EntryCountText.Text = entries.Count == 0 ? Loc.T("coffee.noEntries") : entries.Count == 1 ? Loc.T("coffee.oneEntry") : Loc.F("coffee.nEntries", entries.Count);
         HistoryItemsControl.ItemsSource = entries;
         EmptyHistoryPanel.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateProgressArc(total / (double)limit);
 
         if (total >= limit)
         {
-            LimitStatusText.Text = "Limit erreicht";
+            LimitStatusText.Text = Loc.T("coffee.over");
             LimitStatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 107, 107));
             LimitStatusBadge.Background = new SolidColorBrush(Color.FromArgb(38, 255, 107, 107));
         }
         else if (total >= limit * 0.8)
         {
-            LimitStatusText.Text = "nahe am Limit";
+            LimitStatusText.Text = Loc.T("coffee.near");
             LimitStatusText.Foreground = (Brush)FindResource("OrangeBrush");
             LimitStatusBadge.Background = (Brush)FindResource("AccentSoft");
         }
         else
         {
-            LimitStatusText.Text = "im Rahmen";
+            LimitStatusText.Text = Loc.T("coffee.ok");
             LimitStatusText.Foreground = (Brush)FindResource("GreenBrush");
             LimitStatusBadge.Background = (Brush)FindResource("GreenSoft");
         }
 
         TrackerInsightText.Text = entries.Count == 0
-            ? "Deine Koffeinbilanz erscheint nach dem ersten Eintrag."
-            : $"Noch etwa {active:0} mg geschätzt aktiv. Berechnung mit einer vereinfachten Halbwertszeit von 5 Stunden.";
+            ? Loc.T("coffee.insightEmpty")
+            : Loc.F("coffee.insight", active.ToString("0"));
 
         if (_showingCaffeine) UpdateHeaderForCurrentPage();
     }
@@ -1210,13 +1307,13 @@ public partial class MainWindow : Window
         if (name.Length == 0 || !int.TryParse(CustomMgTextBox.Text, out var mg) || mg < 0 || mg > 2000 ||
             !int.TryParse(CustomMlTextBox.Text, out var ml) || ml < 0 || ml > 5000)
         {
-            CustomEntryErrorText.Text = "Bitte Produktname sowie gültige ml- und mg-Werte eingeben.";
+            CustomEntryErrorText.Text = Loc.T("custom.error");
             return;
         }
 
         AddEntry(new CaffeineEntry
         {
-            Brand = brand.Length == 0 ? "Eigenes Produkt" : brand,
+            Brand = brand.Length == 0 ? Loc.T("custom.ownProduct") : brand,
             ProductName = name,
             Category = "Eigenes Produkt",
             ServingMl = ml,

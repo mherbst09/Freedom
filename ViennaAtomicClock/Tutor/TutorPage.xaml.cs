@@ -12,15 +12,7 @@ namespace ViennaAtomicClock.Tutor;
 /// <summary>Tutor page: binds to <see cref="TutorViewModel"/> and provides dialogs, clipboard and layout.</summary>
 public partial class TutorPage : UserControl, IUserDialogs
 {
-    private static readonly string[] ExampleQuestions =
-    {
-        "Erkläre Polymorphie mit einem Beispiel",
-        "Was ist der Unterschied zwischen Update und FixedUpdate in Unity?",
-        "Zeig mir das Singleton-Pattern – und wann man es nicht verwenden sollte",
-        "Gib mir eine Übungsaufgabe zu LINQ (mittel), Lösung erst auf Nachfrage",
-        "Zeichne ein UML-Klassendiagramm für eine Bibliothek als PlantUML",
-        "Wie funktioniert ein INNER JOIN in SQL?"
-    };
+    private static readonly string[] ExampleQuestions = { "ai.q1", "ai.q2", "ai.q3", "ai.q4", "ai.q5", "ai.q6" };
 
     private TutorViewModel? _viewModel;
     private bool _autoScroll = true;
@@ -31,15 +23,16 @@ public partial class TutorPage : UserControl, IUserDialogs
         InitializeComponent();
         MarkdownView.CopyHandler = CopyText;
         IsVisibleChanged += (_, _) => OnVisibilityChanged();
-        foreach (var question in ExampleQuestions)
+        foreach (var key in ExampleQuestions)
         {
-            var chip = new Button { Content = question, Margin = new Thickness(4), Height = 34, FontSize = 12.5 };
+            var chip = new Button { Margin = new Thickness(4), Height = 34, FontSize = 12.5 };
+            chip.SetResourceReference(ContentProperty, "L." + key);
             chip.SetResourceReference(StyleProperty, "ChipButton");
             chip.Click += (_, _) =>
             {
                 if (_viewModel?.Selected is { } chat)
                 {
-                    chat.Input = question;
+                    chat.Input = Loc.T(key);
                     InputBox.Focus();
                     InputBox.CaretIndex = InputBox.Text.Length;
                 }
@@ -55,7 +48,15 @@ public partial class TutorPage : UserControl, IUserDialogs
         if (IsVisible && _viewModel is null)
         {
             // Created on first use so Freedom starts as fast as before.
-            _viewModel = new TutorViewModel(new TutorContext(TutorPaths.Default, new HttpClient { Timeout = Timeout.InfiniteTimeSpan }), this);
+            var context = new TutorContext(TutorPaths.Default, new HttpClient { Timeout = Timeout.InfiniteTimeSpan });
+            context.Prompts.ReplyLanguage = Loc.PromptLanguage;
+            Loc.Changed += () =>
+            {
+                context.Prompts.ReplyLanguage = Loc.PromptLanguage;
+                UpdateKnowledgeToggle();
+                _ = _viewModel?.CheckConnectionAsync();
+            };
+            _viewModel = new TutorViewModel(context, this);
             _viewModel.PropertyChanged += ViewModelChanged;
             DataContext = _viewModel;
             UpdateKnowledgeToggle();
@@ -123,7 +124,7 @@ public partial class TutorPage : UserControl, IUserDialogs
     private void UpdateKnowledgeToggle()
     {
         var on = _viewModel?.Settings.UseKnowledge == true;
-        KnowledgeToggle.Content = on ? "✓ Verwenden" : "○ Nicht verwenden";
+        KnowledgeToggle.Content = Loc.T(on ? "ai.useKnowledge" : "ai.noKnowledge");
         Ui.Select(KnowledgeToggle, on);
     }
 
@@ -134,7 +135,7 @@ public partial class TutorPage : UserControl, IUserDialogs
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Datei anhängen",
+            Title = Loc.T("ai.attachTitle"),
             Multiselect = true,
             Filter = "Text, Markdown und Code|*.txt;*.md;*.cs;*.json;*.xml;*.xaml;*.sql;*.csproj;*.py;*.java;*.js;*.ts;*.puml|Alle Dateien|*.*"
         };
@@ -143,7 +144,7 @@ public partial class TutorPage : UserControl, IUserDialogs
 
     public void SaveMarkdown(string suggestedName, string content)
     {
-        var dialog = new SaveFileDialog { Title = "Als Markdown exportieren", FileName = suggestedName, Filter = "Markdown|*.md", DefaultExt = ".md" };
+        var dialog = new SaveFileDialog { Title = Loc.T("ai.export"), FileName = suggestedName, Filter = "Markdown|*.md", DefaultExt = ".md" };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
         try
         {

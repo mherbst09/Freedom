@@ -16,6 +16,10 @@ internal sealed class AppSettings
     /// <summary>Coloured mode: palette generated from <see cref="CustomColor"/> (#AARRGGBB).</summary>
     public bool ColorMode { get; set; }
     public string CustomColor { get; set; } = "#FF3D7BFF";
+    /// <summary>UI language code (de, en, es, pt, ru, zh, ja).</summary>
+    public string Language { get; set; } = "de";
+    public double SettingsWidth { get; set; } = 400;
+    public double SettingsHeight { get; set; } = 640;
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

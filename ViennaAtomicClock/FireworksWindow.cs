@@ -1133,8 +1133,8 @@ internal sealed class FireworksCanvas : FrameworkElement
         var titleSize = _focus.Width * 0.085;
         var subtitleSize = _focus.Width * 0.038;
         var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        _title ??= BuildText("STUNDE VORBEI!", titleSize, new Point(_center.X, _center.Y), pixelsPerDip);
-        _subtitle ??= BuildText("★  MEGA BIG WIN  ★", subtitleSize, new Point(_center.X, _center.Y + titleSize * 0.95), pixelsPerDip);
+        _title ??= BuildText(Loc.T("fireworks.title"), titleSize, new Point(_center.X, _center.Y), pixelsPerDip);
+        _subtitle ??= BuildText(Loc.T("fireworks.sub"), subtitleSize, new Point(_center.X, _center.Y + titleSize * 0.95), pixelsPerDip);
 
         // Punches in huge and wobbles into place; punches again at the finale jackpot.
         var p = _time - 0.05;

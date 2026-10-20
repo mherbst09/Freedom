@@ -46,10 +46,10 @@
         <!-- Sidebar: new chat, search, chat list, status, settings -->
         <Border x:Name="Sidebar" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="14" Panel.ZIndex="5">
             <DockPanel>
-                <Button DockPanel.Dock="Top" Style="{StaticResource ActionButton}" Height="42" Content="＋  Neuer Chat" Command="{Binding NewChatCommand}"/>
+                <Button DockPanel.Dock="Top" Style="{StaticResource ActionButton}" Height="42" Content="{DynamicResource L.ai.newChat}" Command="{Binding NewChatCommand}"/>
                 <Grid DockPanel.Dock="Top" Margin="0,12,0,10">
                     <TextBox x:Name="SearchBox" Style="{StaticResource InputTextBox}" Height="36" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"/>
-                    <TextBlock Text="⌕  Chats durchsuchen" Foreground="{DynamicResource TextMuted}" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                    <TextBlock Text="{DynamicResource L.ai.searchChats}" Foreground="{DynamicResource TextMuted}" Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
                                Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Hidden}}"/>
                 </Grid>
 
@@ -61,7 +61,7 @@
                             <TextBlock Text="{Binding ConnectionText}" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Border>
-                    <Button Style="{StaticResource SecondaryButton}" Height="38" Content="⚙  Einstellungen" Command="{Binding OpenSettingsCommand}"/>
+                    <Button Style="{StaticResource SecondaryButton}" Height="38" Content="{DynamicResource L.ai.settings}" Command="{Binding OpenSettingsCommand}"/>
                 </StackPanel>
 
                 <ListBox ItemsSource="{Binding ChatList}" SelectedItem="{Binding Selected}" Background="Transparent" BorderThickness="0"
@@ -115,11 +115,11 @@
                             <ColumnDefinition/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Button x:Name="SidebarToggle" Style="{StaticResource IconButton}" Content="☰" Margin="0,0,6,0" Visibility="Collapsed" Click="SidebarToggle_Click" ToolTip="Chats anzeigen"/>
+                        <Button x:Name="SidebarToggle" Style="{StaticResource IconButton}" Content="☰" Margin="0,0,6,0" Visibility="Collapsed" Click="SidebarToggle_Click" ToolTip="{DynamicResource L.ai.showChats}"/>
                         <TextBox Grid.Column="1" Style="{StaticResource PlainBox}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
-                                 Text="{Binding Title, UpdateSourceTrigger=LostFocus}" ToolTip="Klicken zum Umbenennen" KeyDown="TitleBox_KeyDown"/>
+                                 Text="{Binding Title, UpdateSourceTrigger=LostFocus}" ToolTip="{DynamicResource L.ai.rename}" KeyDown="TitleBox_KeyDown"/>
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <Button x:Name="ModelButton" Style="{StaticResource ChipButton}" Height="32" Click="ModelButton_Click" ToolTip="Lokales Modell wählen"
+                            <Button x:Name="ModelButton" Style="{StaticResource ChipButton}" Height="32" Click="ModelButton_Click" ToolTip="{DynamicResource L.ai.pickModel}"
                                     DataContext="{Binding DataContext, ElementName=Root}">
                                 <TextBlock Foreground="{DynamicResource TextSecondary}"><Run Text="◆ "/><Run Text="{Binding ModelName, Mode=OneWay}"/><Run Text=" ▾"/></TextBlock>
                             </Button>
@@ -127,7 +127,7 @@
                                    DataContext="{Binding DataContext, ElementName=Root}">
                                 <Border Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="8" MinWidth="240">
                                     <StackPanel>
-                                        <TextBlock Text="INSTALLIERTE MODELLE" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,6"/>
+                                        <TextBlock Text="{DynamicResource L.ai.installed}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,6"/>
                                         <ItemsControl ItemsSource="{Binding Models}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
@@ -142,13 +142,13 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <TextBlock Text="Keine Modelle gefunden. Ist Ollama gestartet?" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="6,4"
+                                        <TextBlock Text="{DynamicResource L.ai.noModels}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="6,4"
                                                    Visibility="{Binding Models.Count, Converter={StaticResource Hidden}}"/>
                                     </StackPanel>
                                 </Border>
                             </Popup>
-                            <Button Style="{StaticResource IconButton}" Content="⇩" ToolTip="Chat als Markdown exportieren" Command="{Binding DataContext.ExportChatCommand, ElementName=Root}"/>
-                            <Button Style="{StaticResource IconButton}" Content="🗑" FontSize="14" ToolTip="Chat löschen" Command="{Binding DataContext.DeleteChatCommand, ElementName=Root}"/>
+                            <Button Style="{StaticResource IconButton}" Content="⇩" ToolTip="{DynamicResource L.ai.export}" Command="{Binding DataContext.ExportChatCommand, ElementName=Root}"/>
+                            <Button Style="{StaticResource IconButton}" Content="🗑" FontSize="14" ToolTip="{DynamicResource L.ai.deleteChat}" Command="{Binding DataContext.DeleteChatCommand, ElementName=Root}"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -176,14 +176,14 @@
                                             </Border>
                                             <TextBlock Text="Eagle 1.1" FontWeight="SemiBold" FontSize="13" Margin="8,0,0,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding TimeLabel}" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="8,1,0,0" VerticalAlignment="Center"/>
-                                            <TextBlock Text="  ● schreibt …" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
+                                            <TextBlock Text="{DynamicResource L.ai.writing}" FontSize="11" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"
                                                        Visibility="{Binding IsStreaming, Converter={StaticResource Visible}}"/>
                                         </StackPanel>
                                         <local:MarkdownView Markdown="{Binding Content}" Margin="32,0,0,0"/>
                                         <StackPanel Orientation="Horizontal" Margin="28,0,0,0" Visibility="{Binding IsStreaming, Converter={StaticResource Hidden}}">
-                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="⧉ Kopieren"
+                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="{DynamicResource L.ai.copy}"
                                                     Command="{Binding DataContext.CopyMessageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
-                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="⇩ Als Markdown"
+                                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Content="{DynamicResource L.ai.asMarkdown}"
                                                     Command="{Binding DataContext.ExportMessageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -197,8 +197,8 @@
                 <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="620" Margin="24"
                             Visibility="{Binding IsEmpty, Converter={StaticResource Visible}}">
                     <TextBlock Text="◆" FontSize="34" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Hi, ich bin Eagle 1.1. Was möchtest du heute lernen?" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,4"/>
-                    <TextBlock Text="C#, OOP, Unity, UML, Patterns, Datenbanken, Netzwerke – lokal auf deinem PC, ohne Cloud." FontSize="13"
+                    <TextBlock Text="{DynamicResource L.ai.welcome}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,8,0,4"/>
+                    <TextBlock Text="{DynamicResource L.ai.welcomeSub}" FontSize="13"
                                Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
                     <WrapPanel x:Name="Suggestions" HorizontalAlignment="Center" Margin="0,18,0,0"/>
                 </StackPanel>
@@ -210,7 +210,7 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <TextBlock Text="{Binding ConnectionHelp}" TextWrapping="Wrap" FontSize="13" LineHeight="19"/>
-                        <Button Grid.Column="1" Style="{StaticResource ChipButton}" Height="32" VerticalAlignment="Top" Margin="12,0,0,0" Content="↻ Erneut prüfen" Command="{Binding CheckConnectionCommand}"/>
+                        <Button Grid.Column="1" Style="{StaticResource ChipButton}" Height="32" VerticalAlignment="Top" Margin="12,0,0,0" Content="{DynamicResource L.ai.retry}" Command="{Binding CheckConnectionCommand}"/>
                     </Grid>
                 </Border>
 
@@ -223,7 +223,7 @@
                             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Style="{StaticResource ChipButton}" Height="28" FontSize="11.5" ToolTip="Entfernen"
+                                    <Button Style="{StaticResource ChipButton}" Height="28" FontSize="11.5" ToolTip="{DynamicResource L.ai.remove}"
                                             Command="{Binding DataContext.RemoveAttachmentCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}" CommandParameter="{Binding}">
                                         <TextBlock><Run Text="📎 "/><Run Text="{Binding FileName, Mode=OneWay}"/><Run Text="  ×"/></TextBlock>
                                     </Button>
@@ -241,14 +241,14 @@
                                             <KeyBinding Key="Enter" Modifiers="Control" Command="{Binding SendCommand}"/>
                                         </TextBox.InputBindings>
                                     </TextBox>
-                                    <TextBlock Text="Frag Eagle 1.1 …  (Strg+Enter zum Senden)" FontSize="14.5" Foreground="{DynamicResource TextMuted}" Margin="2,1,0,0" IsHitTestVisible="False"
+                                    <TextBlock Text="{DynamicResource L.ai.inputHint}" FontSize="14.5" Foreground="{DynamicResource TextMuted}" Margin="2,1,0,0" IsHitTestVisible="False"
                                                Visibility="{Binding Text, ElementName=InputBox, Converter={StaticResource Hidden}}"/>
                                 </Grid>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                                    <Button Style="{StaticResource IconButton}" Content="📎" FontSize="15" ToolTip="Text-, Markdown- oder C#-Datei anhängen" Command="{Binding AttachCommand}"/>
-                                    <Button Style="{StaticResource ActionButton}" Height="38" Padding="16,0" Content="Senden ⏎" Command="{Binding SendCommand}"
+                                    <Button Style="{StaticResource IconButton}" Content="📎" FontSize="15" ToolTip="{DynamicResource L.ai.attachTip}" Command="{Binding AttachCommand}"/>
+                                    <Button Style="{StaticResource ActionButton}" Height="38" Padding="16,0" Content="{DynamicResource L.ai.send}" Command="{Binding SendCommand}"
                                             Visibility="{Binding IsBusy, Converter={StaticResource Hidden}}"/>
-                                    <Button Style="{StaticResource SecondaryButton}" Height="38" Padding="16,0" Content="■ Stopp" Command="{Binding CancelCommand}"
+                                    <Button Style="{StaticResource SecondaryButton}" Height="38" Padding="16,0" Content="{DynamicResource L.ai.stop}" Command="{Binding CancelCommand}"
                                             Visibility="{Binding IsBusy, Converter={StaticResource Visible}}"/>
                                 </StackPanel>
                             </Grid>
@@ -264,17 +264,17 @@
                     CornerRadius="{DynamicResource CardRadius}" Padding="24" MaxWidth="620" Margin="24" VerticalAlignment="Center">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
                     <StackPanel>
-                        <TextBlock Text="Eagle 1.1 – Einstellungen" FontSize="20" FontWeight="SemiBold"/>
-                        <TextBlock Text="Alles bleibt lokal auf diesem PC." FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,14"/>
+                        <TextBlock Text="{DynamicResource L.ai.settingsTitle}" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="{DynamicResource L.ai.local}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,14"/>
 
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Ollama-Adresse" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBlock Text="{DynamicResource L.ai.address}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
                                 <TextBox Style="{StaticResource InputTextBox}" Text="{Binding ApiAddress, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Modell" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBlock Text="{DynamicResource L.ai.model}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
                                 <TextBox Style="{StaticResource InputTextBox}" Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}"/>
                             </StackPanel>
                         </Grid>
@@ -282,31 +282,31 @@
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Temperatur (0–2)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
-                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding Temperature, UpdateSourceTrigger=PropertyChanged}" ToolTip="Niedrig = genauer, hoch = kreativer"/>
+                                <TextBlock Text="{DynamicResource L.ai.temperature}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding Temperature, UpdateSourceTrigger=PropertyChanged}" ToolTip="{DynamicResource L.ai.temperatureTip}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Kontext (Tokens)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
-                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding ContextTokens, UpdateSourceTrigger=PropertyChanged}" ToolTip="Wie viel das Modell auf einmal liest (num_ctx)"/>
+                                <TextBlock Text="{DynamicResource L.ai.context}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding ContextTokens, UpdateSourceTrigger=PropertyChanged}" ToolTip="{DynamicResource L.ai.contextTip}"/>
                             </StackPanel>
                             <StackPanel Grid.Column="4">
-                                <TextBlock Text="Verlauf (Zeichen)" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
-                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MaxHistory, UpdateSourceTrigger=PropertyChanged}" ToolTip="Ältere Nachrichten darüber hinaus werden nicht mehr mitgeschickt"/>
+                                <TextBlock Text="{DynamicResource L.ai.history}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,5"/>
+                                <TextBox Style="{StaticResource InputTextBox}" Text="{Binding MaxHistory, UpdateSourceTrigger=PropertyChanged}" ToolTip="{DynamicResource L.ai.historyTip}"/>
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="Wissensbasis" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,14,0,5"/>
+                        <TextBlock Text="{DynamicResource L.ai.knowledge}" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,14,0,5"/>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <Button x:Name="KnowledgeToggle" Style="{StaticResource ChipButton}" Height="34" Click="KnowledgeToggle_Click"/>
                             <TextBlock Grid.Column="1" Text="{Binding KnowledgeInfo}" FontSize="11.5" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0,8,0"/>
-                            <Button Grid.Column="2" Style="{StaticResource ChipButton}" Height="34" Margin="0" Content="📁 Ordner öffnen"
+                            <Button Grid.Column="2" Style="{StaticResource ChipButton}" Height="34" Margin="0" Content="{DynamicResource L.ai.openFolder}"
                                     Command="{Binding DataContext.OpenKnowledgeCommand, ElementName=Root}"/>
                         </Grid>
 
                         <Grid Margin="0,14,0,5">
-                            <TextBlock Text="System-Prompt" FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
-                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Margin="0" HorizontalAlignment="Right" Content="Standard wiederherstellen"
+                            <TextBlock Text="{DynamicResource L.ai.systemPrompt}" FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
+                            <Button Style="{StaticResource ChipButton}" Height="26" FontSize="11" Margin="0" HorizontalAlignment="Right" Content="{DynamicResource L.ai.resetPrompt}"
                                     Command="{Binding DataContext.ResetPromptCommand, ElementName=Root}"/>
                         </Grid>
                         <TextBox Style="{StaticResource InputTextBox}" Height="200" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top" Padding="12,8"
@@ -316,8 +316,8 @@
                                    Visibility="{Binding Error, Converter={StaticResource Visible}}"/>
                         <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <Button Style="{StaticResource SecondaryButton}" Content="Abbrechen" Command="{Binding DataContext.CancelSettingsCommand, ElementName=Root}"/>
-                            <Button Grid.Column="2" Style="{StaticResource ActionButton}" Content="Speichern" Command="{Binding DataContext.SaveSettingsCommand, ElementName=Root}"/>
+                            <Button Style="{StaticResource SecondaryButton}" Content="{DynamicResource L.cancel}" Command="{Binding DataContext.CancelSettingsCommand, ElementName=Root}"/>
+                            <Button Grid.Column="2" Style="{StaticResource ActionButton}" Content="{DynamicResource L.save}" Command="{Binding DataContext.SaveSettingsCommand, ElementName=Root}"/>
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>

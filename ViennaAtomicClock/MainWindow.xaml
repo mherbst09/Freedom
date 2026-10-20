@@ -10,16 +10,21 @@
         WindowStyle="None" ResizeMode="CanResize"
         AllowsTransparency="True" Background="Transparent"
         TextOptions.TextFormattingMode="Display"
-        UseLayoutRounding="True">
+        TextOptions.TextHintingMode="Fixed"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" CornerRadius="10" GlassFrameThickness="0" ResizeBorderThickness="7"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Border x:Name="WindowShell" Margin="14" CornerRadius="10"
-            Background="{DynamicResource WindowBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+    <Grid>
+    <!-- Shadow drawn by its own border: an effect on the shell itself would blur every text inside. -->
+    <Border x:Name="WindowShadow" Margin="14" CornerRadius="10" Background="{DynamicResource WindowBackground}">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="6" Opacity="0.28" Color="#000000"/>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="6" Opacity="0.3" Color="#000000"/>
         </Border.Effect>
+    </Border>
+    <Border x:Name="WindowShell" Margin="14" CornerRadius="10" RenderOptions.ClearTypeHint="Enabled"
+            Background="{DynamicResource WindowBackground}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
 
         <Grid>
             <Grid.RowDefinitions>
@@ -33,6 +38,7 @@
             <local:TetrisBackdrop x:Name="TetrisLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:AmericaBackdrop x:Name="AmericaLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:MinecraftBackdrop x:Name="MinecraftLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
+            <local:EagleBackdrop x:Name="EagleLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
 
             <!-- Custom title bar -->
             <Grid x:Name="TitleBarGrid" Grid.Row="0" Margin="24,0,16,0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -42,7 +48,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="AppSwitcherButton" Width="42" Height="42" Background="{DynamicResource AccentBrush}" BorderThickness="0" Foreground="{DynamicResource AccentForeground}" FontSize="22" Content="⊞" Cursor="Hand" ToolTip="Apps wechseln" Click="AppSwitcherButton_Click">
+                    <Button x:Name="AppSwitcherButton" Width="42" Height="42" Background="{DynamicResource AccentBrush}" BorderThickness="0" Foreground="{DynamicResource AccentForeground}" FontSize="22" Content="⊞" Cursor="Hand" ToolTip="{DynamicResource L.tip.apps}" Click="AppSwitcherButton_Click">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="SwitchBg" Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}">
@@ -55,31 +61,35 @@
                         </Button.Template>
                     </Button>
                     <Popup x:Name="AppSwitcherPopup" PlacementTarget="{Binding ElementName=AppSwitcherButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="0" VerticalOffset="8">
-                        <Border Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="12">
+                        <Grid Margin="0,0,14,14">
+                        <Border Background="{DynamicResource PopupBrush}" CornerRadius="{DynamicResource CardRadius}">
                             <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.32"/></Border.Effect>
+                        </Border>
+                        <Border Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="12">
                             <StackPanel Width="310">
-                                <TextBlock Text="APPS" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,10"/>
+                                <TextBlock Text="{DynamicResource L.apps}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,10"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
                                     <Button x:Name="ClockTileButton" Grid.Row="0" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ClockTileButton_Click">
-                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◷" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Freedom" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="Atomzeit · Stunden" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◷" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Freedom" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.clock.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                     <Button x:Name="CaffeineTileButton" Grid.Row="0" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="CaffeineTileButton_Click">
-                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="☕" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Koffein" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="Tracker · mg" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="☕" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.coffee}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.coffee.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                     <Button x:Name="TodoTileButton" Grid.Row="2" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="TodoTileButton_Click">
-                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="☑" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Aufgaben" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="Todo · Listen" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="☑" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.todo}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.todo.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                     <Button x:Name="NotesTileButton" Grid.Row="2" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="NotesTileButton_Click">
-                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="✎" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Notizen" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="Schreiben · Suchen" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="✎" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.notes}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.notes.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                     <Button x:Name="TutorTileButton" Grid.Row="4" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="TutorTileButton_Click">
-                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◆" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="AI" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="Eagle 1.1 · lokal" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◆" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="AI" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.ai.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                 </Grid>
                             </StackPanel>
                         </Border>
+                        </Grid>
                     </Popup>
                     <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                         <TextBlock x:Name="AppTitleText" Text="FREEDOM" FontFamily="{DynamicResource StencilFont}" FontSize="17"/>
@@ -94,33 +104,65 @@
                             <TextBlock x:Name="HeaderStatusText" Text="Synchronisiere …" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource GreenBrush}"/>
                         </StackPanel>
                     </Border>
-                    <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Content="⚙" FontSize="19" ToolTip="Einstellungen" Click="SettingsButton_Click"/>
-                    <Button x:Name="FullscreenButton" Style="{StaticResource IconButton}" Content="⛶" FontSize="17" ToolTip="Vollbild für Beamer (F11)" Click="FocusButton_Click"/>
-                    <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" HorizontalOffset="-300" VerticalOffset="8">
-                        <Border Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="16" Margin="0,0,12,12">
-                            <Border.Effect><DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.32"/></Border.Effect>
-                            <ScrollViewer MaxHeight="680" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
-                            <StackPanel Width="340" Margin="0,0,6,0">
-                                <TextBlock Text="EINSTELLUNGEN" FontFamily="{DynamicResource StencilFont}" FontSize="17"/>
-                                <TextBlock Text="Darstellung" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,14,0,6"/>
+                    <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Content="⚙" FontSize="19" ToolTip="{DynamicResource L.tip.settings}" Click="SettingsButton_Click"/>
+                    <Button x:Name="FullscreenButton" Style="{StaticResource IconButton}" Content="⛶" FontSize="17" ToolTip="{DynamicResource L.tip.fullscreen}" Click="FocusButton_Click"/>
+                    <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide" HorizontalOffset="-340" VerticalOffset="8">
+                        <Grid Margin="0,0,14,14">
+                            <Border Background="{DynamicResource PopupBrush}" CornerRadius="{DynamicResource CardRadius}">
+                                <Border.Effect><DropShadowEffect BlurRadius="26" ShadowDepth="6" Opacity="0.34"/></Border.Effect>
+                            </Border>
+                            <Border x:Name="SettingsPanel" Width="400" Height="640" MinWidth="330" MinHeight="380" Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1"
+                                    CornerRadius="{DynamicResource CardRadius}" Padding="18,14,10,14" SizeChanged="SettingsPanel_SizeChanged">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Button x:Name="LightModeButton" Style="{StaticResource ChipButton}" Margin="0" Height="38" Content="☀  Hell" Click="LightModeButton_Click"/>
-                                    <Button x:Name="DarkModeButton" Grid.Column="2" Style="{StaticResource ChipButton}" Margin="0" Height="38" Content="☾  Dunkel" Click="DarkModeButton_Click"/>
-                                    <Button x:Name="ColorModeButton" Grid.Column="4" Style="{StaticResource ChipButton}" Margin="0" Height="38" Content="◐  Farbig" Click="ColorModeButton_Click"/>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
+                                    <Grid Margin="0,0,6,10">
+                                        <TextBlock Text="{DynamicResource L.settings}" FontFamily="{DynamicResource StencilFont}" FontSize="18" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button x:Name="SettingsExpandButton" Style="{StaticResource IconButton}" Width="34" Height="34" Content="⤢" ToolTip="{DynamicResource L.settings.expand}" Click="SettingsExpand_Click"/>
+                                            <Button Style="{StaticResource IconButton}" Width="34" Height="34" Content="×" FontSize="20" ToolTip="{DynamicResource L.close}" Click="SettingsClose_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                        <StackPanel Margin="0,0,8,0">
+                                            <TextBlock Text="{DynamicResource L.settings.language}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,4,0,6"/>
+                                            <WrapPanel x:Name="LanguageList"/>
+                                            <TextBlock Text="{DynamicResource L.settings.appearance}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,14,0,6"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                                <Button x:Name="LightModeButton" Style="{StaticResource ChipButton}" Margin="0" Height="38" Click="LightModeButton_Click">
+                                                    <TextBlock><Run Text="☀  "/><Run Text="{DynamicResource L.mode.light}"/></TextBlock>
+                                                </Button>
+                                                <Button x:Name="DarkModeButton" Grid.Column="2" Style="{StaticResource ChipButton}" Margin="0" Height="38" Click="DarkModeButton_Click">
+                                                    <TextBlock><Run Text="☾  "/><Run Text="{DynamicResource L.mode.dark}"/></TextBlock>
+                                                </Button>
+                                                <Button x:Name="ColorModeButton" Grid.Column="4" Style="{StaticResource ChipButton}" Margin="0" Height="38" Click="ColorModeButton_Click">
+                                                    <TextBlock><Run Text="◐  "/><Run Text="{DynamicResource L.mode.color}"/></TextBlock>
+                                                </Button>
+                                            </Grid>
+                                            <Border x:Name="ColorPickerHost" Margin="0,10,0,0" Padding="12" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}" CornerRadius="{DynamicResource CardRadius}" Visibility="Collapsed">
+                                                <local:ColorPicker x:Name="ThemeColorPicker"/>
+                                            </Border>
+                                            <TextBlock Text="{DynamicResource L.settings.theme}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,16,0,6"/>
+                                            <UniformGrid x:Name="ThemeList" Columns="2"/>
+                                        </StackPanel>
+                                    </ScrollViewer>
                                 </Grid>
-                                <Border x:Name="ColorPickerHost" Margin="0,10,0,0" Padding="12" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}" CornerRadius="{DynamicResource CardRadius}" Visibility="Collapsed">
-                                    <local:ColorPicker x:Name="ThemeColorPicker"/>
-                                </Border>
-                                <TextBlock Text="Theme" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,16,0,6"/>
-                                <UniformGrid x:Name="ThemeList" Columns="2"/>
-                            </StackPanel>
-                            </ScrollViewer>
-                        </Border>
+                            </Border>
+                            <Thumb x:Name="SettingsResizeGrip" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,3" Cursor="SizeNWSE"
+                                   DragDelta="SettingsResize_DragDelta" ToolTip="{DynamicResource L.settings.resize}">
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Grid Background="Transparent">
+                                            <Path Data="M 18,6 L 6,18 M 18,11 L 11,18 M 18,16 L 16,18" Stroke="{DynamicResource TextMuted}" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Grid>
                     </Popup>
-                    <Button x:Name="PinButton" Style="{StaticResource IconButton}" Content="⌖" ToolTip="Immer im Vordergrund" Click="PinButton_Click"/>
-                    <Button Style="{StaticResource IconButton}" Content="—" ToolTip="Minimieren" Click="MinimizeButton_Click"/>
-                    <Button Style="{StaticResource IconButton}" Content="×" FontSize="24" ToolTip="Schließen" Click="CloseButton_Click"/>
+                    <Button x:Name="PinButton" Style="{StaticResource IconButton}" Content="⌖" ToolTip="{DynamicResource L.tip.pin}" Click="PinButton_Click"/>
+                    <Button Style="{StaticResource IconButton}" Content="—" ToolTip="{DynamicResource L.tip.minimize}" Click="MinimizeButton_Click"/>
+                    <Button Style="{StaticResource IconButton}" Content="×" FontSize="24" ToolTip="{DynamicResource L.close}" Click="CloseButton_Click"/>
                 </StackPanel>
             </Grid>
 
@@ -154,7 +196,7 @@
 
                             <Grid>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="WIEN" FontFamily="{DynamicResource StencilFont}" FontSize="14" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{DynamicResource L.clock.city}" FontFamily="{DynamicResource StencilFont}" FontSize="14" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
                                     <Border CornerRadius="{DynamicResource CardRadius}" Background="{DynamicResource AccentSoft}" Padding="8,4" Margin="10,0,0,0">
                                         <TextBlock x:Name="UtcOffsetBadge" Text="UTC+02:00" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                                     </Border>
@@ -166,7 +208,7 @@
                             <Viewbox Grid.Row="1" Stretch="Uniform" StretchDirection="Both" Margin="0,10">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock x:Name="MainTimeText" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="MainTimeText" TextOptions.TextFormattingMode="Ideal" Typography.NumeralAlignment="Tabular" Text="00:00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="76" FontWeight="SemiBold"/>
                                     <TextBlock x:Name="MicrosecondsText" Typography.NumeralAlignment="Tabular" Text=".000000" FontFamily="{DynamicResource DisplayFont}" FontSize="24" FontWeight="Medium" Foreground="{DynamicResource AccentBrush}" Opacity="0.7" VerticalAlignment="Bottom" Margin="8,0,0,13"/>
                                 </StackPanel>
                                 <TextBlock x:Name="DateText" Text="Donnerstag, 15. Oktober 2026" FontSize="18" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" Margin="0,10,0,0"/>
@@ -212,7 +254,7 @@
                                     <TextBlock x:Name="LessonLabelText" Text="Stunde endet in" FontSize="20" FontWeight="Bold"/>
                                     <TextBlock x:Name="LessonNextText" Text="" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,5,0,0"/>
                                 </StackPanel>
-                                <TextBlock x:Name="LessonCountdownText" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="60" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                <TextBlock x:Name="LessonCountdownText" TextOptions.TextFormattingMode="Ideal" Typography.NumeralAlignment="Tabular" Grid.Column="1" Text="00:00" FontFamily="{DynamicResource DisplayFont}" FontSize="60" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" Margin="16,0,0,0"/>
                             </Grid>
 
                             <Grid Grid.Row="2" Margin="0,12,0,0">
@@ -239,11 +281,11 @@
 
                         <Grid Margin="4,0,0,0">
                             <StackPanel>
-                                <TextBlock Text="STUNDENPLAN" FontFamily="{DynamicResource StencilFont}" FontSize="24"/>
+                                <TextBlock Text="{DynamicResource L.schedule.title}" FontFamily="{DynamicResource StencilFont}" FontSize="24"/>
                                 <TextBlock x:Name="ScheduleSubtitleText" Text="11 Stunden à 50 Minuten" FontSize="13.5" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <Button x:Name="GroupButton" Style="{StaticResource ChipButton}" Height="26" Margin="0" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Content="Gruppe: beide" ToolTip="Gruppe bei geteilten Fächern (E1, ITP2, INSY, SEW) wechseln" Click="GroupButton_Click"/>
+                                    Content="Gruppe: beide" ToolTip="{DynamicResource L.tip.group}" Click="GroupButton_Click"/>
                         </Grid>
 
                         <ScrollViewer Grid.Row="1" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" Focusable="False">
@@ -251,12 +293,12 @@
                         </ScrollViewer>
 
                         <Border Grid.Row="2" Background="{DynamicResource SurfaceAlt}" CornerRadius="{DynamicResource CardRadius}" Padding="14,10" Margin="0,12,0,0"
-                                ToolTip="Die Uhr gleicht sich alle 5 Minuten mit Atomzeit-Servern (NTP) ab.">
+                                ToolTip="{DynamicResource L.tip.sync}">
                             <StackPanel>
                                 <Grid>
-                                    <TextBlock x:Name="SyncStatusText" Text="Wird geprüft" FontSize="12" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="SyncStatusText" Text="{DynamicResource L.sync.checking}" FontSize="12" FontWeight="SemiBold"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                        <TextBlock Text="Abgleich " FontSize="11" Foreground="{DynamicResource TextMuted}"/>
+                                        <TextBlock Text="{DynamicResource L.sync.last}" FontSize="11" Foreground="{DynamicResource TextMuted}"/>
                                         <TextBlock x:Name="LastSyncText" Text="—" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
                                     </StackPanel>
                                 </Grid>
@@ -276,8 +318,8 @@
                                 <ColumnDefinition Width="8"/>
                                 <ColumnDefinition Width="46"/>
                             </Grid.ColumnDefinitions>
-                            <Button x:Name="SyncButton" Style="{StaticResource ActionButton}" Content="↻  Synchronisieren" Padding="8,0" Click="SyncButton_Click"/>
-                            <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Padding="0" Content="✦" FontSize="16" ToolTip="Feuerwerk testen (F9)" Click="FireworksButton_Click"/>
+                            <Button x:Name="SyncButton" Style="{StaticResource ActionButton}" Content="{DynamicResource L.sync.button}" Padding="8,0" Click="SyncButton_Click"/>
+                            <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Padding="0" Content="✦" FontSize="16" ToolTip="{DynamicResource L.tip.fireworks}" Click="FireworksButton_Click"/>
                         </Grid>
                     </Grid>
                 </Border>
@@ -311,7 +353,7 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel>
-                            <TextBlock Text="Heute" FontSize="22" FontWeight="SemiBold"/>
+                            <TextBlock Text="{DynamicResource L.coffee.today}" FontSize="22" FontWeight="SemiBold"/>
                             <TextBlock x:Name="TrackerDateText" Text="Donnerstag, 15. Oktober" FontSize="12" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                         </StackPanel>
 
@@ -320,7 +362,7 @@
                             <Path x:Name="CaffeineProgressArc" Stroke="{DynamicResource AccentBrush}" StrokeThickness="13" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                 <TextBlock x:Name="CaffeineTotalText" Text="0" FontFamily="{DynamicResource DisplayFont}" FontSize="46" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                                <TextBlock Text="mg heute" FontSize="12" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="{DynamicResource L.coffee.mgToday}" FontSize="12" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center"/>
                                 <Border x:Name="LimitStatusBadge" Background="{DynamicResource GreenSoft}" CornerRadius="{DynamicResource CardRadius}" Padding="9,4" Margin="0,9,0,0">
                                     <TextBlock x:Name="LimitStatusText" Text="im Rahmen" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource GreenBrush}" HorizontalAlignment="Center"/>
                                 </Border>
@@ -330,11 +372,11 @@
                         <Grid Grid.Row="2" Margin="0,0,0,18">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="GESCHÄTZT AKTIV" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMuted}"/>
+                                <TextBlock Text="{DynamicResource L.coffee.active}" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMuted}"/>
                                 <TextBlock x:Name="ActiveCaffeineText" Text="0 mg" FontFamily="{DynamicResource DisplayFont}" FontSize="16" FontWeight="SemiBold" Margin="0,6,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="BIS ZUM LIMIT" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMuted}"/>
+                                <TextBlock Text="{DynamicResource L.coffee.toLimit}" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextMuted}"/>
                                 <TextBlock x:Name="RemainingCaffeineText" Text="400 mg" FontFamily="{DynamicResource DisplayFont}" FontSize="16" FontWeight="SemiBold" Margin="0,6,0,0"/>
                             </StackPanel>
                         </Grid>
@@ -344,12 +386,12 @@
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="72"/></Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="Tageslimit" FontSize="12" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Orientierungswert, kein Ziel" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/>
+                                        <TextBlock Text="{DynamicResource L.coffee.limit}" FontSize="12" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{DynamicResource L.coffee.limitHint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/>
                                     </StackPanel>
                                     <TextBox x:Name="DailyLimitTextBox" Grid.Column="1" Style="{StaticResource InputTextBox}" Height="38" Text="400" TextAlignment="Center" LostFocus="DailyLimitTextBox_LostFocus" KeyDown="DailyLimitTextBox_KeyDown"/>
                                 </Grid>
-                                <TextBlock Text="EFSA: bis 400 mg/Tag für gesunde Erwachsene. Schwangerschaft/Stillzeit: 200 mg. Individuelle Verträglichkeit kann abweichen."
+                                <TextBlock Text="{DynamicResource L.coffee.efsa}"
                                            TextWrapping="Wrap" FontSize="9.5" LineHeight="14" Foreground="{DynamicResource TextMuted}" Margin="0,12,0,0"/>
                             </StackPanel>
                         </Border>
@@ -369,23 +411,23 @@
 
                         <Grid>
                             <StackPanel>
-                                <TextBlock Text="Getränk hinzufügen" FontSize="21" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource L.coffee.add}" FontSize="21" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="CatalogCountText" Text="Produkte aus Österreich" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="+1 Portion" FontSize="10" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource L.coffee.portion}" FontSize="10" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
 
                         <Grid Grid.Row="1" Margin="0,16,0,12">
                             <TextBox x:Name="ProductSearchTextBox" Style="{StaticResource InputTextBox}" Padding="36,0,12,0" TextChanged="ProductSearchTextBox_TextChanged"/>
                             <TextBlock Text="⌕" FontSize="20" Foreground="{DynamicResource TextMuted}" Margin="12,0,0,1" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                            <TextBlock x:Name="SearchHintText" Text="Marke, Produkt oder Supermarkt suchen …" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="36,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                            <TextBlock x:Name="SearchHintText" Text="{DynamicResource L.coffee.search}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="36,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
                         </Grid>
 
                         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button x:Name="AllCategoryButton" Style="{StaticResource ChipButton}" Content="Alle" Tag="Alle" Click="CategoryButton_Click" Background="{DynamicResource AccentSoft}" Foreground="{DynamicResource AccentBrush}"/>
-                            <Button x:Name="EnergyCategoryButton" Style="{StaticResource ChipButton}" Content="Energy" Tag="Energy" Click="CategoryButton_Click"/>
-                            <Button x:Name="CoffeeCategoryButton" Style="{StaticResource ChipButton}" Content="Kaffee" Tag="Kaffee" Click="CategoryButton_Click"/>
-                            <Button x:Name="MoreCategoryButton" Style="{StaticResource ChipButton}" Content="Mehr" Tag="Mehr" Click="CategoryButton_Click"/>
+                            <Button x:Name="AllCategoryButton" Style="{StaticResource ChipButton}" Content="{DynamicResource L.coffee.all}" Tag="Alle" Click="CategoryButton_Click" Background="{DynamicResource AccentSoft}" Foreground="{DynamicResource AccentBrush}"/>
+                            <Button x:Name="EnergyCategoryButton" Style="{StaticResource ChipButton}" Content="{DynamicResource L.coffee.energy}" Tag="Energy" Click="CategoryButton_Click"/>
+                            <Button x:Name="CoffeeCategoryButton" Style="{StaticResource ChipButton}" Content="{DynamicResource L.coffee.coffee}" Tag="Kaffee" Click="CategoryButton_Click"/>
+                            <Button x:Name="MoreCategoryButton" Style="{StaticResource ChipButton}" Content="{DynamicResource L.coffee.more}" Tag="Mehr" Click="CategoryButton_Click"/>
                         </StackPanel>
 
                         <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,-6,0">
@@ -407,7 +449,7 @@
                                                     </TextBlock>
                                                     <TextBlock Text="{Binding Store, Mode=OneWay}" FontSize="9" Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis"/>
                                                 </StackPanel>
-                                                <Button Grid.Column="2" Style="{StaticResource RoundAddButton}" Content="+" DataContext="{Binding}" Click="AddProductButton_Click" ToolTip="Jetzt eintragen"/>
+                                                <Button Grid.Column="2" Style="{StaticResource RoundAddButton}" Content="+" DataContext="{Binding}" Click="AddProductButton_Click" ToolTip="{DynamicResource L.coffee.addNow}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -415,7 +457,7 @@
                             </ItemsControl>
                         </ScrollViewer>
 
-                        <Button Grid.Row="4" Style="{StaticResource SecondaryButton}" Height="40" Content="＋  Eigenes Getränk eintragen" Margin="0,10,0,0" Click="OpenCustomEntryButton_Click"/>
+                        <Button Grid.Row="4" Style="{StaticResource SecondaryButton}" Height="40" Content="{DynamicResource L.coffee.custom}" Margin="0,10,0,0" Click="OpenCustomEntryButton_Click"/>
                     </Grid>
                 </Border>
 
@@ -428,15 +470,15 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Tagesverlauf" FontSize="19" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="EntryCountText" Text="Noch keine Einträge" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                            <TextBlock Text="{DynamicResource L.coffee.history}" FontSize="19" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="EntryCountText" Text="{DynamicResource L.coffee.noEntries}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                         </StackPanel>
 
                         <Grid Grid.Row="1" Margin="0,16,0,10">
                             <StackPanel x:Name="EmptyHistoryPanel" VerticalAlignment="Center">
                                 <TextBlock Text="☕" FontSize="34" HorizontalAlignment="Center" Opacity="0.45"/>
-                                <TextBlock Text="Noch nichts getrackt" FontSize="12" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                                <TextBlock Text="Füge links dein erstes Getränk hinzu." FontSize="10" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" TextAlignment="Center" Margin="8,3"/>
+                                <TextBlock Text="{DynamicResource L.coffee.emptyTitle}" FontSize="12" Foreground="{DynamicResource TextSecondary}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                <TextBlock Text="{DynamicResource L.coffee.emptyHint}" FontSize="10" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" TextAlignment="Center" Margin="8,3"/>
                             </StackPanel>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl x:Name="HistoryItemsControl">
@@ -452,7 +494,7 @@
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="2" HorizontalAlignment="Right">
                                                         <TextBlock Text="{Binding AmountLabel, Mode=OneWay}" FontFamily="{DynamicResource DisplayFont}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                                                        <Button Content="entfernen" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextMuted}" FontSize="8.5" Padding="0" Cursor="Hand" DataContext="{Binding}" Click="DeleteEntryButton_Click"/>
+                                                        <Button Content="{DynamicResource L.coffee.remove}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextMuted}" FontSize="8.5" Padding="0" Cursor="Hand" DataContext="{Binding}" Click="DeleteEntryButton_Click"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>
@@ -481,31 +523,31 @@
                     <StackPanel>
                         <Grid>
                             <StackPanel>
-                                <TextBlock Text="Eigenes Getränk" FontSize="22" FontWeight="SemiBold"/>
-                                <TextBlock Text="Für neue Sorten, Cafés und regionale Produkte" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
+                                <TextBlock Text="{DynamicResource L.custom.title}" FontSize="22" FontWeight="SemiBold"/>
+                                <TextBlock Text="{DynamicResource L.custom.sub}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
                             </StackPanel>
                             <Button Style="{StaticResource IconButton}" Content="×" FontSize="22" HorizontalAlignment="Right" VerticalAlignment="Top" Click="CloseCustomEntryButton_Click"/>
                         </Grid>
-                        <TextBlock Text="Marke / Hersteller" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,20,0,6"/>
+                        <TextBlock Text="{DynamicResource L.custom.brand}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,20,0,6"/>
                         <TextBox x:Name="CustomBrandTextBox" Style="{StaticResource InputTextBox}"/>
-                        <TextBlock Text="Produktname" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,12,0,6"/>
+                        <TextBlock Text="{DynamicResource L.custom.name}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,12,0,6"/>
                         <TextBox x:Name="CustomNameTextBox" Style="{StaticResource InputTextBox}"/>
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Portion in ml" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{DynamicResource L.custom.ml}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
                                 <TextBox x:Name="CustomMlTextBox" Style="{StaticResource InputTextBox}" Text="250"/>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Koffein in mg" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{DynamicResource L.custom.mg}" FontSize="11" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
                                 <TextBox x:Name="CustomMgTextBox" Style="{StaticResource InputTextBox}" Text="80"/>
                             </StackPanel>
                         </Grid>
                         <TextBlock x:Name="CustomEntryErrorText" Text="" FontSize="10" Foreground="{DynamicResource OrangeBrush}" Margin="0,9,0,0"/>
                         <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                            <Button Style="{StaticResource SecondaryButton}" Content="Abbrechen" Click="CloseCustomEntryButton_Click"/>
-                            <Button Grid.Column="2" Style="{StaticResource ActionButton}" Content="Eintragen" Click="SaveCustomEntryButton_Click"/>
+                            <Button Style="{StaticResource SecondaryButton}" Content="{DynamicResource L.cancel}" Click="CloseCustomEntryButton_Click"/>
+                            <Button Grid.Column="2" Style="{StaticResource ActionButton}" Content="{DynamicResource L.custom.save}" Click="SaveCustomEntryButton_Click"/>
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -518,4 +560,5 @@
             <local:MinecraftOverlay x:Name="MinecraftTop" Grid.RowSpan="2" Panel.ZIndex="200" Visibility="Collapsed"/>
         </Grid>
     </Border>
+    </Grid>
 </Window>

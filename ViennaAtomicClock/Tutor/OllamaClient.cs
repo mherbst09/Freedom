@@ -20,13 +20,7 @@ public sealed class OllamaClient
 
     public OllamaClient(HttpClient http) => _http = http;
 
-    public static string NotRunningHelp(string address) =>
-        $"Ollama ist unter {address} nicht erreichbar.\n\n" +
-        "So behebst du das:\n" +
-        "1. Ollama installieren (ollama.com, einmalig mit Internet).\n" +
-        "2. Ollama starten (Startmenü → Ollama, oder im Terminal: ollama serve).\n" +
-        "3. Ein Modell laden, z. B.: ollama pull qwen2.5-coder:7b\n" +
-        "4. Hier auf „Erneut prüfen“ klicken.";
+    public static string NotRunningHelp(string address) => Loc.F("ai.help.notRunning", address);
 
     public async Task<string?> GetVersionAsync(string address, CancellationToken cancellation)
     {
@@ -101,8 +95,8 @@ public sealed class OllamaClient
             {
                 var error = await ReadError(response, cancellation);
                 if ((int)response.StatusCode == 404 || error.Contains("not found", StringComparison.OrdinalIgnoreCase))
-                    throw new OllamaException($"Das Modell „{model}“ ist nicht installiert.\n\nLade es im Terminal mit:\nollama pull {model}\n\noder wähle in den Einstellungen ein installiertes Modell.");
-                throw new OllamaException($"Ollama hat einen Fehler gemeldet: {error}");
+                    throw new OllamaException(Loc.F("ai.help.modelNotInstalled", model));
+                throw new OllamaException(Loc.F("ai.error", error));
             }
 
             await using var stream = await response.Content.ReadAsStreamAsync(cancellation);
@@ -112,7 +106,7 @@ public sealed class OllamaClient
                 if (line.Length == 0) continue;
                 var chunk = JsonNode.Parse(line);
                 if (chunk?["error"]?.GetValue<string>() is { } streamError)
-                    throw new OllamaException($"Ollama hat einen Fehler gemeldet: {streamError}");
+                    throw new OllamaException(Loc.F("ai.error", streamError));
                 var token = chunk?["message"]?["content"]?.GetValue<string>();
                 if (!string.IsNullOrEmpty(token)) yield return token;
                 if (chunk?["done"]?.GetValue<bool>() == true) yield break;

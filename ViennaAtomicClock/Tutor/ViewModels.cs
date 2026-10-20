@@ -129,7 +129,7 @@ public sealed class ChatViewModel : ObservableObject
         get => Chat.Title;
         set
         {
-            var title = value.Trim().Length == 0 ? "Neuer Chat" : value.Trim();
+            var title = value.Trim().Length == 0 ? Loc.T("ai.newChatTitle") : value.Trim();
             if (title == Chat.Title) return;
             Chat.Title = title;
             Raise();
@@ -169,7 +169,7 @@ public sealed class ChatViewModel : ObservableObject
                 var info = new FileInfo(path);
                 if (info.Length > 200_000)
                 {
-                    _setStatus($"„{info.Name}“ ist zu groß (max. 200 KB).");
+                    _setStatus(Loc.F("ai.tooBig", info.Name));
                     continue;
                 }
                 PendingAttachments.Add(new Attachment { FileName = info.Name, Content = File.ReadAllText(path) });
@@ -208,7 +208,7 @@ public sealed class ChatViewModel : ObservableObject
 
         IsBusy = true;
         _generation = new CancellationTokenSource();
-        _setStatus("Modell wird geladen …");
+        _setStatus(Loc.T("ai.loading"));
         var buffer = new StringBuilder();
         var lastUpdate = Stopwatch.StartNew();
         try
@@ -216,7 +216,7 @@ public sealed class ChatViewModel : ObservableObject
             var prompt = _context.Prompts.BuildPrompt(Chat, settings);
             await foreach (var token in _context.Ollama.ChatStreamAsync(settings.ApiAddress, settings.Model, prompt, settings.Temperature, settings.ContextTokens, _generation.Token))
             {
-                if (buffer.Length == 0) _setStatus("Antwort wird erstellt …");
+                if (buffer.Length == 0) _setStatus(Loc.T("ai.answering"));
                 buffer.Append(token);
                 // Re-rendering Markdown for every token would be wasteful; ~15 updates per second look smooth.
                 if (lastUpdate.ElapsedMilliseconds > 66)
@@ -230,21 +230,21 @@ public sealed class ChatViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            answerVm.Content = buffer.ToString() + (buffer.Length > 0 ? "\n\n" : "") + "_⏹ Abgebrochen._";
+            answerVm.Content = buffer.ToString() + (buffer.Length > 0 ? "\n\n" : "") + Loc.T("ai.aborted");
             answerVm.MarkIncomplete();
-            _setStatus("Antwort abgebrochen.");
+            _setStatus(Loc.T("ai.cancelled"));
         }
         catch (OllamaException e)
         {
             answerVm.Content = "⚠ " + e.Message;
             answerVm.MarkIncomplete();
-            _setStatus("Fehler bei der Verbindung zu Ollama.");
+            _setStatus(Loc.T("ai.connectionError"));
         }
         catch (Exception e) when (e is HttpRequestException or IOException or System.Text.Json.JsonException)
         {
-            answerVm.Content = buffer + "\n\n⚠ Die Verbindung wurde unterbrochen: " + e.Message;
+            answerVm.Content = buffer + "\n\n" + Loc.F("ai.interrupted", e.Message);
             answerVm.MarkIncomplete();
-            _setStatus("Verbindung unterbrochen.");
+            _setStatus(Loc.T("ai.connectionError"));
         }
         finally
         {
@@ -291,7 +291,7 @@ public sealed class SettingsViewModel : ObservableObject
     public bool UseKnowledge { get => _useKnowledge; set => Set(ref _useKnowledge, value); }
     public string SystemPrompt { get => _systemPrompt; set => Set(ref _systemPrompt, value); }
     public string Error { get => _error; set => Set(ref _error, value); }
-    public string KnowledgeInfo => $"{_context.Knowledge.FileCount} Datei(en) in {_context.Paths.Knowledge}";
+    public string KnowledgeInfo => Loc.F("ai.knowledgeInfo", _context.Knowledge.FileCount, _context.Paths.Knowledge);
 
     public void Load()
     {
@@ -312,14 +312,14 @@ public sealed class SettingsViewModel : ObservableObject
     {
         var invariant = System.Globalization.CultureInfo.InvariantCulture;
         if (!Uri.TryCreate(ApiAddress.Trim(), UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
-            return Fail("Die API-Adresse muss wie http://localhost:11434 aussehen.");
-        if (Model.Trim().Length == 0) return Fail("Bitte einen Modellnamen angeben.");
+            return Fail(Loc.T("ai.err.address"));
+        if (Model.Trim().Length == 0) return Fail(Loc.T("ai.err.model"));
         if (!double.TryParse(Temperature.Replace(',', '.'), System.Globalization.NumberStyles.Float, invariant, out var temperature) || temperature is < 0 or > 2)
-            return Fail("Die Temperatur muss zwischen 0 und 2 liegen.");
+            return Fail(Loc.T("ai.err.range"));
         if (!int.TryParse(ContextTokens, out var context) || context is < 512 or > 131072)
-            return Fail("Das Kontextfenster muss zwischen 512 und 131072 Tokens liegen.");
+            return Fail(Loc.T("ai.err.range"));
         if (!int.TryParse(MaxHistory, out var history) || history is < 2000 or > 500000)
-            return Fail("Der Verlauf muss zwischen 2000 und 500000 Zeichen liegen.");
+            return Fail(Loc.T("ai.err.range"));
 
         _context.Current = new TutorSettings
         {
@@ -354,7 +354,7 @@ public sealed class TutorViewModel : ObservableObject
     private readonly IUserDialogs _dialogs;
     private readonly DispatcherTimer _connectionTimer = new() { Interval = TimeSpan.FromSeconds(15) };
     private ChatViewModel? _selected;
-    private string _search = "", _status = "", _connectionText = "Verbindung wird geprüft …", _connectionHelp = "";
+    private string _search = "", _status = "", _connectionText = Loc.T("ai.checking"), _connectionHelp = "";
     private bool _isConnected, _showSettings, _checking;
 
     public TutorViewModel(TutorContext context, IUserDialogs dialogs)
@@ -453,7 +453,7 @@ public sealed class TutorViewModel : ObservableObject
             if (version is null)
             {
                 IsConnected = false;
-                ConnectionText = "Ollama läuft nicht";
+                ConnectionText = Loc.T("ai.notRunning");
                 ConnectionHelp = OllamaClient.NotRunningHelp(address);
                 Models.Clear();
                 return;
@@ -464,15 +464,15 @@ public sealed class TutorViewModel : ObservableObject
             foreach (var model in models) Models.Add(model);
             IsConnected = true;
             var hasModel = models.Any(m => m.Name == ModelName || m.Name == ModelName + ":latest");
-            ConnectionText = $"Ollama {version} · {models.Count} Modell(e)";
+            ConnectionText = Loc.F("ai.connected", version, models.Count);
             ConnectionHelp = models.Count == 0
-                ? $"Ollama läuft, aber es ist noch kein Modell installiert.\n\nLade eines im Terminal, z. B.:\nollama pull {ModelName}"
-                : hasModel ? "" : $"Das eingestellte Modell „{ModelName}“ ist nicht installiert. Wähle oben ein installiertes Modell oder lade es mit:\nollama pull {ModelName}";
+                ? Loc.F("ai.help.noModel", ModelName)
+                : hasModel ? "" : Loc.F("ai.help.missingModel", ModelName);
         }
         catch (Exception e) when (e is OllamaException or OperationCanceledException)
         {
             IsConnected = false;
-            ConnectionText = "Ollama läuft nicht";
+            ConnectionText = Loc.T("ai.notRunning");
             ConnectionHelp = OllamaClient.NotRunningHelp(_context.Current.ApiAddress);
         }
         finally
@@ -504,7 +504,7 @@ public sealed class TutorViewModel : ObservableObject
 
     private void DeleteSelected()
     {
-        if (Selected is not { } chat || !_dialogs.Confirm($"Chat „{chat.Title}“ wirklich löschen?")) return;
+        if (Selected is not { } chat || !_dialogs.Confirm(Loc.F("ai.deleteQ", chat.Title))) return;
         try { _context.Storage.Delete(chat.Chat); }
         catch (IOException e) { Status = $"Löschen fehlgeschlagen: {e.Message}"; return; }
         Chats.Remove(chat);

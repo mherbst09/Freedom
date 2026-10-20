@@ -79,7 +79,7 @@ internal sealed class ColorPicker : StackPanel
         hexHost.Margin = new Thickness(8, 0, 8, 0);
         Grid.SetColumn(hexHost, 1);
         bottom.Children.Add(hexHost);
-        var pipette = Ui.Button("ChipButton", "⌖", (_, _) => PickFromScreen(), "Pipette: Farbe vom Bildschirm aufnehmen (Esc bricht ab)");
+        var pipette = Ui.Button("ChipButton", "⌖", (_, _) => PickFromScreen(), Loc.T("color.pipette"));
         pipette.Margin = new Thickness(0);
         pipette.Height = 34;
         pipette.Width = 40;
@@ -156,17 +156,17 @@ internal sealed class ColorPicker : StackPanel
 
         if (_hsvMode)
         {
-            _bars[0].Set("Farbton", _h / 360, Rainbow(), $"{_h / 360:0.000}");
-            _bars[1].Set("Sättigung", _s, Gradient(ColorMath.FromHsv(_h, 0, _v), ColorMath.FromHsv(_h, 1, _v)), $"{_s:0.000}");
-            _bars[2].Set("Helligkeit", _v, Gradient(Colors.Black, ColorMath.FromHsv(_h, _s, 1)), $"{_v:0.000}");
+            _bars[0].Set(Loc.T("color.hue"), _h / 360, Rainbow(), $"{_h / 360:0.000}");
+            _bars[1].Set(Loc.T("color.saturation"), _s, Gradient(ColorMath.FromHsv(_h, 0, _v), ColorMath.FromHsv(_h, 1, _v)), $"{_s:0.000}");
+            _bars[2].Set(Loc.T("color.value"), _v, Gradient(Colors.Black, ColorMath.FromHsv(_h, _s, 1)), $"{_v:0.000}");
         }
         else
         {
-            _bars[0].Set("Rot", c.R / 255.0, Gradient(Color.FromRgb(0, c.G, c.B), Color.FromRgb(255, c.G, c.B)), $"{c.R / 255.0:0.000}");
-            _bars[1].Set("Grün", c.G / 255.0, Gradient(Color.FromRgb(c.R, 0, c.B), Color.FromRgb(c.R, 255, c.B)), $"{c.G / 255.0:0.000}");
-            _bars[2].Set("Blau", c.B / 255.0, Gradient(Color.FromRgb(c.R, c.G, 0), Color.FromRgb(c.R, c.G, 255)), $"{c.B / 255.0:0.000}");
+            _bars[0].Set(Loc.T("color.red"), c.R / 255.0, Gradient(Color.FromRgb(0, c.G, c.B), Color.FromRgb(255, c.G, c.B)), $"{c.R / 255.0:0.000}");
+            _bars[1].Set(Loc.T("color.green"), c.G / 255.0, Gradient(Color.FromRgb(c.R, 0, c.B), Color.FromRgb(c.R, 255, c.B)), $"{c.G / 255.0:0.000}");
+            _bars[2].Set(Loc.T("color.blue"), c.B / 255.0, Gradient(Color.FromRgb(c.R, c.G, 0), Color.FromRgb(c.R, c.G, 255)), $"{c.B / 255.0:0.000}");
         }
-        _bars[3].Set("Alpha", _a, Gradient(Color.FromArgb(0, c.R, c.G, c.B), opaque), $"{_a:0.000}");
+        _bars[3].Set(Loc.T("color.alpha"), _a, Gradient(Color.FromArgb(0, c.R, c.G, c.B), opaque), $"{_a:0.000}");
 
         _preview.Background = new SolidColorBrush(c);
         if (!_hexBox.IsKeyboardFocused) _hexBox.Text = ColorMath.ToHex(c);

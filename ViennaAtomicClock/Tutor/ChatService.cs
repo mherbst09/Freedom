@@ -10,9 +10,15 @@ public sealed class ChatService
 
     public ChatService(KnowledgeService? knowledge) => _knowledge = knowledge;
 
+    /// <summary>Language the answers should be in by default; follows the app language.</summary>
+    public string ReplyLanguage { get; set; } = "Deutsch";
+
     public IReadOnlyList<PromptMessage> BuildPrompt(TutorChat chat, TutorSettings settings)
     {
         var system = settings.SystemPrompt.Trim().Length > 0 ? settings.SystemPrompt.Trim() : TutorPrompts.DefaultSystemPrompt;
+
+        if (ReplyLanguage != "Deutsch")
+            system += $"\n\nWichtig: Antworte standardmäßig auf {ReplyLanguage}, weil die App auf diese Sprache eingestellt ist – außer die Person schreibt in einer anderen Sprache.";
 
         var lastUser = chat.Messages.LastOrDefault(m => m.Role == ChatRole.User);
         if (settings.UseKnowledge && _knowledge is not null && lastUser is not null)

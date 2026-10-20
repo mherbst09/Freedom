@@ -52,12 +52,12 @@ internal sealed class TodoStore
 /// </summary>
 internal sealed class TodoPage : Grid
 {
-    private static readonly CultureInfo Culture = CultureInfo.GetCultureInfo("de-AT");
+    private static CultureInfo Culture => Loc.Culture;
 
     private static readonly (string Id, string Icon, string Name)[] SmartLists =
     {
-        ("myday", "☀", "Mein Tag"), ("important", "★", "Wichtig"), ("planned", "▦", "Geplant"),
-        ("all", "≡", "Alle Aufgaben"), ("done", "✓", "Erledigt")
+        ("myday", "☀", "todo.myday"), ("important", "★", "todo.important"), ("planned", "▦", "todo.planned"),
+        ("all", "≡", "todo.all"), ("done", "✓", "todo.done")
     };
 
     private readonly TodoStore _store = TodoStore.Load();
@@ -98,11 +98,12 @@ internal sealed class TodoPage : Grid
 
         // Lists column.
         var listsPanel = new DockPanel();
-        var listsTitle = Ui.Text("LISTEN", 18, title: true);
+        var listsTitle = Ui.Text("", 18, title: true);
+        listsTitle.SetResourceReference(TextBlock.TextProperty, "L.todo.lists");
         listsTitle.Margin = new Thickness(4, 0, 0, 12);
         DockPanel.SetDock(listsTitle, Dock.Top);
         listsPanel.Children.Add(listsTitle);
-        var (newListHost, newListBox) = Ui.Input("＋ Neue Liste");
+        var (newListHost, newListBox) = Ui.Input("", resourceKey: "L.todo.newList");
         newListBox.KeyDown += (_, e) =>
         {
             if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(newListBox.Text)) return;
@@ -129,7 +130,8 @@ internal sealed class TodoPage : Grid
         _subtitle.Margin = new Thickness(0, 4, 0, 0);
         titles.Children.Add(_subtitle);
         header.Children.Add(titles);
-        _deleteListButton = Ui.Button("ChipButton", "Liste löschen", (_, _) => DeleteCurrentList());
+        _deleteListButton = Ui.Button("ChipButton", "", (_, _) => DeleteCurrentList());
+        _deleteListButton.SetResourceReference(ContentControl.ContentProperty, "L.todo.deleteList");
         _deleteListButton.Margin = new Thickness(0);
         _deleteListButton.VerticalAlignment = VerticalAlignment.Top;
         Grid.SetColumn(_deleteListButton, 1);
@@ -142,11 +144,12 @@ internal sealed class TodoPage : Grid
         var addRow = new Grid { Margin = new Thickness(0, 16, 0, 0) };
         addRow.ColumnDefinitions.Add(new ColumnDefinition());
         addRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var (addHost, addBox) = Ui.Input("＋ Aufgabe hinzufügen … (Enter)");
+        var (addHost, addBox) = Ui.Input("", resourceKey: "L.todo.addHint");
         _addBox = addBox;
         _addBox.KeyDown += (_, e) => { if (e.Key == Key.Enter) AddTask(); };
         addRow.Children.Add(addHost);
-        var addButton = Ui.Button("ActionButton", "Hinzufügen", (_, _) => AddTask());
+        var addButton = Ui.Button("ActionButton", "", (_, _) => AddTask());
+        addButton.SetResourceReference(ContentControl.ContentProperty, "L.todo.add");
         addButton.Height = 42;
         addButton.Padding = new Thickness(18, 0, 18, 0);
         addButton.Margin = new Thickness(8, 0, 0, 0);
@@ -168,6 +171,7 @@ internal sealed class TodoPage : Grid
         Children.Add(_detailsCard);
 
         Refresh();
+        Loc.Changed += Refresh;
     }
 
     public int OpenCount => _store.Items.Count(i => !i.Done);
@@ -233,7 +237,17 @@ internal sealed class TodoPage : Grid
         Changed?.Invoke();
     }
 
-    private string ListName(string id) => _store.Lists.FirstOrDefault(l => l.Id == id)?.Name ?? "Aufgaben";
+    private string ListName(string id) => DisplayName(_store.Lists.FirstOrDefault(l => l.Id == id));
+
+    /// <summary>Built-in lists keep their German default name in the file but are shown in the UI language.</summary>
+    private static string DisplayName(TodoList? list) => list switch
+    {
+        null => Loc.T("todo.listTasks"),
+        { Id: TodoStore.DefaultListId, Name: "Aufgaben" } => Loc.T("todo.listTasks"),
+        { Id: "school", Name: "Schule" } => Loc.T("todo.listSchool"),
+        { Id: "private", Name: "Privat" } => Loc.T("todo.listPrivate"),
+        _ => list.Name
+    };
 
     private IEnumerable<TodoItem> ItemsFor(string view)
     {
@@ -289,23 +303,23 @@ internal sealed class TodoPage : Grid
             _listChips.Children.Add(chip);
         }
 
-        foreach (var (id, icon, name) in SmartLists) Add(id, icon, name);
+        foreach (var (id, icon, key) in SmartLists) Add(id, icon, Loc.T(key));
         _lists.Children.Add(Ui.Divider());
-        foreach (var list in _store.Lists) Add("list:" + list.Id, "☰", list.Name);
+        foreach (var list in _store.Lists) Add("list:" + list.Id, "☰", DisplayName(list));
     }
 
     private void BuildHeader()
     {
         var smart = SmartLists.FirstOrDefault(s => s.Id == _view);
-        _title.Text = smart.Id is not null ? smart.Name.ToUpper(Culture) : ListName(_view[5..]).ToUpper(Culture);
+        _title.Text = smart.Id is not null ? Loc.T(smart.Name).ToUpper(Culture) : ListName(_view[5..]).ToUpper(Culture);
         var open = ItemsFor(_view).Count(i => !i.Done);
         _subtitle.Text = _view == "myday"
-            ? $"{DateTime.Today.ToString("dddd, d. MMMM", Culture)} · {open} offen"
-            : _view == "done" ? $"{ItemsFor(_view).Count()} erledigt" : $"{open} offen";
+            ? $"{DateTime.Today.ToString("dddd", Culture)}, {DateTime.Today.ToString("M", Culture)} · {Loc.F("todo.open", open)}"
+            : _view == "done" ? Loc.F("todo.doneCount", ItemsFor(_view).Count()) : Loc.F("todo.open", open);
         _deleteListButton.Visibility = _view.StartsWith("list:") && _view != "list:" + TodoStore.DefaultListId ? Visibility.Visible : Visibility.Collapsed;
 
         _dueChips.Children.Clear();
-        _dueChips.Children.Add(Ui.Text("Fällig:", 11.5, "TextMuted"));
+        _dueChips.Children.Add(Ui.Text(Loc.T("todo.due"), 11.5, "TextMuted"));
         ((TextBlock)_dueChips.Children[0]).VerticalAlignment = VerticalAlignment.Center;
         ((TextBlock)_dueChips.Children[0]).Margin = new Thickness(2, 0, 8, 0);
         foreach (var (label, date) in DueOptions())
@@ -321,10 +335,10 @@ internal sealed class TodoPage : Grid
     {
         var today = DateTime.Today;
         var nextMonday = today.AddDays(((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7 is 0 ? 7 : ((int)DayOfWeek.Monday - (int)today.DayOfWeek + 7) % 7);
-        yield return ("Heute", today);
-        yield return ("Morgen", today.AddDays(1));
-        yield return ("Nächste Woche", nextMonday);
-        yield return ("Ohne", null);
+        yield return (Loc.T("today"), today);
+        yield return (Loc.T("tomorrow"), today.AddDays(1));
+        yield return (Loc.T("todo.nextWeek"), nextMonday);
+        yield return (Loc.T("todo.none"), null);
     }
 
     private void AddTask()
@@ -358,7 +372,7 @@ internal sealed class TodoPage : Grid
             var icon = Ui.Text(_view == "myday" ? "☀" : "✓", 40, "AccentBrush");
             icon.HorizontalAlignment = HorizontalAlignment.Center;
             empty.Children.Add(icon);
-            var hint = Ui.Text(_view == "myday" ? "Nichts für heute geplant. Genieß den Tag!" : "Hier ist noch nichts.", 13, "TextSecondary");
+            var hint = Ui.Text(Loc.T(_view == "myday" ? "todo.emptyMyDay" : "todo.empty"), 13, "TextSecondary");
             hint.Margin = new Thickness(0, 10, 0, 0);
             empty.Children.Add(hint);
             _tasks.Children.Add(empty);
@@ -369,7 +383,7 @@ internal sealed class TodoPage : Grid
 
         if (done.Count > 0 && _view != "done")
         {
-            var toggle = Ui.Button("ChipButton", $"{(_showDone ? "▾" : "▸")}  Erledigt ({done.Count})", (_, _) => { _showDone = !_showDone; BuildTasks(); });
+            var toggle = Ui.Button("ChipButton", $"{(_showDone ? "▾" : "▸")}  {Loc.F("todo.doneToggle", done.Count)}", (_, _) => { _showDone = !_showDone; BuildTasks(); });
             toggle.Margin = new Thickness(0, 10, 0, 8);
             toggle.HorizontalAlignment = HorizontalAlignment.Left;
             _tasks.Children.Add(toggle);
@@ -385,7 +399,7 @@ internal sealed class TodoPage : Grid
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var check = Ui.Button("IconButton", item.Done ? "✔" : "○", (_, _) => ToggleDone(item), item.Done ? "Wieder öffnen" : "Erledigt");
+        var check = Ui.Button("IconButton", item.Done ? "✔" : "○", (_, _) => ToggleDone(item), Loc.T(item.Done ? "todo.reopen" : "todo.complete"));
         check.Width = 32;
         check.Height = 32;
         check.Margin = new Thickness(0);
@@ -401,7 +415,7 @@ internal sealed class TodoPage : Grid
         var meta = new List<string>();
         if (!_view.StartsWith("list:")) meta.Add(ListName(item.ListId));
         if (item.Due is { } due) meta.Add(DueLabel(due));
-        if (item.Note.Length > 0) meta.Add("✎ Notiz");
+        if (item.Note.Length > 0) meta.Add(Loc.T("todo.noteTag"));
         if (meta.Count > 0)
         {
             var overdue = !item.Done && item.Due is { } d && d.Date < DateTime.Today;
@@ -413,7 +427,7 @@ internal sealed class TodoPage : Grid
         Grid.SetColumn(texts, 1);
         grid.Children.Add(texts);
 
-        var star = Ui.Button("IconButton", item.Important ? "★" : "☆", (_, _) => { item.Important = !item.Important; SaveNow(); }, "Wichtig");
+        var star = Ui.Button("IconButton", item.Important ? "★" : "☆", (_, _) => { item.Important = !item.Important; SaveNow(); }, Loc.T("todo.important"));
         star.Width = 32;
         star.Height = 32;
         star.Margin = new Thickness(0);
@@ -429,12 +443,12 @@ internal sealed class TodoPage : Grid
         var days = (due.Date - DateTime.Today).Days;
         return days switch
         {
-            0 => "Heute",
-            1 => "Morgen",
-            -1 => "Gestern",
-            < 0 => $"Überfällig seit {due.ToString("d. M.", Culture)}",
+            0 => Loc.T("today"),
+            1 => Loc.T("tomorrow"),
+            -1 => Loc.T("yesterday"),
+            < 0 => Loc.F("todo.overdue", due.ToString("M", Culture)),
             < 7 => due.ToString("dddd", Culture),
-            _ => due.ToString("ddd, d. M.", Culture)
+            _ => $"{due.ToString("ddd", Culture)}, {due.ToString("M", Culture)}"
         };
     }
 
@@ -452,8 +466,8 @@ internal sealed class TodoPage : Grid
         var name = ListName(id);
         var count = _store.Items.Count(i => i.ListId == id);
         var answer = MessageBox.Show(
-            count > 0 ? $"Liste „{name}“ löschen? Die {count} Aufgaben darin wandern in „Aufgaben“." : $"Liste „{name}“ löschen?",
-            "Liste löschen", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            count > 0 ? Loc.F("todo.deleteListMove", name, count, Loc.T("todo.listTasks")) : Loc.F("todo.deleteListQ", name),
+            Loc.T("todo.deleteList"), MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes) return;
         foreach (var item in _store.Items.Where(i => i.ListId == id)) item.ListId = TodoStore.DefaultListId;
         _store.Lists.RemoveAll(l => l.Id == id);
@@ -472,7 +486,7 @@ internal sealed class TodoPage : Grid
             var icon = Ui.Text("☰", 38, "AccentBrush");
             icon.HorizontalAlignment = HorizontalAlignment.Center;
             empty.Children.Add(icon);
-            var hint = Ui.Text("Wähle eine Aufgabe aus,\num Details zu sehen.", 13, "TextSecondary");
+            var hint = Ui.Text(Loc.T("todo.pick"), 13, "TextSecondary");
             hint.TextAlignment = TextAlignment.Center;
             hint.Margin = new Thickness(0, 10, 0, 0);
             empty.Children.Add(hint);
@@ -483,8 +497,8 @@ internal sealed class TodoPage : Grid
         var head = new Grid();
         head.ColumnDefinitions.Add(new ColumnDefinition());
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        head.Children.Add(Ui.Text("DETAILS", 16, title: true));
-        var close = Ui.Button("IconButton", "×", (_, _) => { _selected = null; Refresh(); }, "Schließen");
+        head.Children.Add(Ui.Text(Loc.T("todo.details"), 16, title: true));
+        var close = Ui.Button("IconButton", "×", (_, _) => { _selected = null; Refresh(); }, Loc.T("close"));
         close.Margin = new Thickness(0);
         close.Width = 30;
         close.Height = 30;
@@ -493,7 +507,7 @@ internal sealed class TodoPage : Grid
         head.Children.Add(close);
         _details.Children.Add(head);
 
-        var (titleHost, titleBox) = Ui.Input("Titel", fontSize: 15);
+        var (titleHost, titleBox) = Ui.Input(Loc.T("todo.title"), fontSize: 15);
         titleBox.Text = item.Title;
         titleBox.FontWeight = FontWeights.Bold;
         titleBox.TextChanged += (_, _) => { if (titleBox.Text.Trim().Length > 0) { item.Title = titleBox.Text.Trim(); SaveLater(); } };
@@ -502,15 +516,15 @@ internal sealed class TodoPage : Grid
         _details.Children.Add(titleHost);
 
         var toggles = new WrapPanel();
-        var doneChip = Ui.Button("ChipButton", item.Done ? "✔ Erledigt" : "○ Offen", (_, _) => ToggleDone(item));
+        var doneChip = Ui.Button("ChipButton", Loc.T(item.Done ? "todo.stateDone" : "todo.stateOpen"), (_, _) => ToggleDone(item));
         Ui.Select(doneChip, item.Done);
-        var starChip = Ui.Button("ChipButton", item.Important ? "★ Wichtig" : "☆ Wichtig", (_, _) => { item.Important = !item.Important; SaveNow(); });
+        var starChip = Ui.Button("ChipButton", (item.Important ? "★ " : "☆ ") + Loc.T("todo.important"), (_, _) => { item.Important = !item.Important; SaveNow(); });
         Ui.Select(starChip, item.Important);
         toggles.Children.Add(doneChip);
         toggles.Children.Add(starChip);
         _details.Children.Add(toggles);
 
-        _details.Children.Add(Label(item.Due is { } due ? $"Fällig: {DueLabel(due)}" : "Fällig"));
+        _details.Children.Add(Label(item.Due is { } due ? Loc.F("todo.dueValue", DueLabel(due)) : Loc.T("todo.dueLabel")));
         var dueChips = new WrapPanel();
         foreach (var (label, date) in DueOptions())
         {
@@ -521,19 +535,19 @@ internal sealed class TodoPage : Grid
         }
         _details.Children.Add(dueChips);
 
-        _details.Children.Add(Label("Liste"));
+        _details.Children.Add(Label(Loc.T("todo.list")));
         var listChips = new WrapPanel();
         foreach (var list in _store.Lists)
         {
-            var chip = Ui.Button("ChipButton", list.Name, (_, _) => { item.ListId = list.Id; SaveNow(); });
+            var chip = Ui.Button("ChipButton", DisplayName(list), (_, _) => { item.ListId = list.Id; SaveNow(); });
             chip.Margin = new Thickness(0, 0, 6, 6);
             Ui.Select(chip, item.ListId == list.Id);
             listChips.Children.Add(chip);
         }
         _details.Children.Add(listChips);
 
-        _details.Children.Add(Label("Notiz"));
-        var (noteHost, noteBox) = Ui.Input("Notiz hinzufügen …", multiline: true);
+        _details.Children.Add(Label(Loc.T("todo.note")));
+        var (noteHost, noteBox) = Ui.Input(Loc.T("todo.noteHint"), multiline: true);
         noteBox.Text = item.Note;
         noteBox.MinHeight = 120;
         noteBox.TextChanged += (_, _) => { item.Note = noteBox.Text; SaveLater(); };
@@ -541,12 +555,12 @@ internal sealed class TodoPage : Grid
         _details.Children.Add(noteHost);
 
         var info = Ui.Text(item.Done && item.Completed is { } c
-            ? $"Erledigt am {c.ToString("d. MMMM, HH:mm", Culture)}"
-            : $"Erstellt am {item.Created.ToString("d. MMMM, HH:mm", Culture)}", 11, "TextMuted");
+            ? Loc.F("todo.completedAt", c.ToString("g", Culture))
+            : Loc.F("todo.createdAt", item.Created.ToString("g", Culture)), 11, "TextMuted");
         info.Margin = new Thickness(0, 14, 0, 8);
         _details.Children.Add(info);
 
-        var delete = Ui.Button("SecondaryButton", "🗑  Aufgabe löschen", (_, _) =>
+        var delete = Ui.Button("SecondaryButton", Loc.T("todo.deleteTask"), (_, _) =>
         {
             _store.Items.Remove(item);
             _selected = null;

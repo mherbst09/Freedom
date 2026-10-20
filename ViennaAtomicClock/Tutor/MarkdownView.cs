@@ -118,12 +118,12 @@ public sealed class MarkdownView : StackPanel
         var label = new TextBlock { Text = language, FontFamily = CodeFont, FontSize = 11.5, VerticalAlignment = VerticalAlignment.Center };
         label.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
         header.Children.Add(label);
-        var copy = new Button { Content = "⧉ Kopieren", Padding = new Thickness(10, 2, 10, 2), Height = 26, FontSize = 11.5, Margin = new Thickness(0) };
+        var copy = new Button { Content = Loc.T("ai.copy"), Padding = new Thickness(10, 2, 10, 2), Height = 26, FontSize = 11.5, Margin = new Thickness(0) };
         copy.SetResourceReference(StyleProperty, "ChipButton");
         copy.Click += (_, _) =>
         {
             CopyHandler?.Invoke(block.Text);
-            copy.Content = "✓ Kopiert";
+            copy.Content = Loc.T("ai.copied");
         };
         Grid.SetColumn(copy, 1);
         header.Children.Add(copy);

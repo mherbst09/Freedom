@@ -44,7 +44,8 @@ internal static class Ui
     }
 
     /// <summary>Text box with a grey hint while it is empty.</summary>
-    public static (Grid Host, TextBox Box) Input(string hint, bool multiline = false, double fontSize = 13)
+    /// <param name="resourceKey">Optional L.* resource for the hint, so it follows the UI language.</param>
+    public static (Grid Host, TextBox Box) Input(string hint, bool multiline = false, double fontSize = 13, string? resourceKey = null)
     {
         var box = new TextBox { FontSize = fontSize };
         box.SetResourceReference(FrameworkElement.StyleProperty, "InputTextBox");
@@ -55,6 +56,7 @@ internal static class Ui
             VerticalAlignment = multiline ? VerticalAlignment.Top : VerticalAlignment.Center
         };
         hintText.SetResourceReference(TextBlock.ForegroundProperty, "TextMuted");
+        if (resourceKey is not null) hintText.SetResourceReference(TextBlock.TextProperty, resourceKey);
         if (multiline)
         {
             box.Height = double.NaN;

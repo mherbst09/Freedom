@@ -15,9 +15,13 @@ internal static class Themes
     public const string Tetris = "tetris";
     public const string America = "america";
     public const string Minecraft = "minecraft";
+    public const string Standard = "standard";
+    public const string Eagle = "eagle";
 
     public static readonly (string Id, string Label, string Glyph, string Hint)[] All =
     {
+        (Standard, "Standard", "◻", "Schlicht, nur deine Farben"),
+        (Eagle, "Eagle", "🦅", "Logo-Farben, frisch animiert"),
         (War, "Kriegsfilm", "✪", "Grau, Filmkorn, Schablonenschrift"),
         (Hacker, "Hacker", ">_", "Grünes Terminal, Code-Regen"),
         (Anime, "Anime", "🐾", "Pink, Katzenohren, Pfoten"),
@@ -49,15 +53,26 @@ internal static class Themes
         resources["OrangeBrush"] = Brush(p[14]);
         // Popups sit over other windows, so they get the surface colour without transparency.
         resources["PopupBrush"] = Brush(Color.FromRgb(p[1].R, p[1].G, p[1].B));
+        // Filled buttons: the Eagle theme uses its pink-to-cyan logo gradient, all others the accent colour.
+        if (theme == Eagle && custom is null)
+        {
+            var fill = new LinearGradientBrush(Color.FromRgb(255, 46, 136), Color.FromRgb(50, 200, 240), new Point(0, 0), new Point(1, 1));
+            fill.Freeze();
+            resources["AccentFill"] = fill;
+        }
+        else resources["AccentFill"] = Brush(p[9]);
 
         var (ui, display, title, radius) = theme switch
         {
-            Hacker => ("Consolas, Cascadia Mono, Courier New", "Consolas, Cascadia Mono, Courier New", "OCR A Extended, Consolas", 2.0),
-            Anime => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Ink Free, Segoe Print, Segoe UI", 18.0),
-            Tetris => ("Bahnschrift, Segoe UI", "Lucida Console, Consolas", "OCR A Extended, Consolas", 0.0),
-            America => ("Bahnschrift, Segoe UI", "Bahnschrift, Segoe UI", "Impact, Arial Black", 6.0),
-            Minecraft => ("Lucida Console, Consolas", "Lucida Console, Consolas", "Lucida Console, Consolas", 0.0),
-            _ => ("Courier New, Consolas", "Courier New, Consolas", "Stencil, Impact, Arial Black", 4.0)
+            // Corners stay crisp per theme, but every theme now has softly rounded ones.
+            Hacker => ("Consolas, Cascadia Mono", "Consolas, Cascadia Mono", "OCR A Extended, Consolas", 8.0),
+            Anime => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Ink Free, Segoe Print, Segoe UI", 22.0),
+            Tetris => ("Bahnschrift, Segoe UI", "Bahnschrift, Segoe UI", "OCR A Extended, Consolas", 8.0),
+            America => ("Bahnschrift, Segoe UI", "Bahnschrift, Segoe UI", "Impact, Arial Black", 12.0),
+            Minecraft => ("Lucida Console, Consolas", "Lucida Console, Consolas", "Lucida Console, Consolas", 6.0),
+            Standard => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Segoe UI Variable Display Semibold, Segoe UI Semibold", 14.0),
+            Eagle => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Segoe UI Variable Display Semibold, Segoe UI Semibold", 16.0),
+            _ => ("Consolas, Courier New", "Consolas, Courier New", "Stencil, Impact, Arial Black", 10.0)
         };
         resources["UiFont"] = new FontFamily(ui);
         resources["DisplayFont"] = new FontFamily(display);
@@ -68,13 +83,13 @@ internal static class Themes
     /// <summary>Corner radius of the whole window for a theme.</summary>
     public static double WindowRadius(string theme) => theme switch
     {
-        Hacker => 4, Anime => 26, Tetris => 4, America => 12, Minecraft => 2, _ => 10
+        Hacker => 14, Anime => 28, Tetris => 14, America => 18, Minecraft => 12, Standard => 20, Eagle => 22, _ => 16
     };
 
     /// <summary>How see-through the cards are, so animated backdrops can shine through.</summary>
     private static double SurfaceOpacity(string theme) => theme switch
     {
-        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, _ => 1
+        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, Eagle => 0.86, _ => 1
     };
 
     /// <summary>Dark palette tinted with the picked colour; the colour itself becomes the accent.</summary>
@@ -161,6 +176,26 @@ internal static class Themes
             "#8FB8FF", "#F0C6C6C6", "#F0B5B5B5", "#373737", "#3F3F3F", "#555555", "#6E6E6E", "#D0D0D0", "#8B8B8B",
             "#3C8527", "#FFFFFF", "#A9C99B", "#3C8527", "#BFD9B3", "#B8720F"
         },
+        (Standard, true) => new[]
+        {
+            "#0F1115", "#171A21", "#1E222B", "#2A2F3A", "#ECEEF2", "#A6ADBB", "#6F7686", "#232833", "#262B35",
+            "#4F8BFF", "#FFFFFF", "#1D2C4D", "#3DD68C", "#143326", "#FFB547"
+        },
+        (Standard, false) => new[]
+        {
+            "#EEF1F6", "#FFFFFF", "#F3F5F9", "#DDE2EA", "#171A21", "#5A6272", "#8A92A2", "#E9EDF3", "#E3E7EE",
+            "#2F6BFF", "#FFFFFF", "#E3ECFF", "#12A15F", "#DCF5E8", "#D9822B"
+        },
+        (Eagle, true) => new[]
+        {
+            "#0B0A14", "#E0151325", "#E61C1A30", "#2E2A4A", "#FFFFFF", "#C9C3E6", "#8C86AD", "#24203D", "#24203A",
+            "#FF2E88", "#FFFFFF", "#C03A1530", "#32E0E8", "#0E3438", "#FFD43B"
+        },
+        (Eagle, false) => new[]
+        {
+            "#F6F4FF", "#E6FFFFFF", "#E6F4F1FF", "#E2DCF5", "#1A1530", "#5C5580", "#8E88AE", "#F0ECFF", "#ECE7FA",
+            "#F01E7E", "#FFFFFF", "#FFE0EE", "#0FB8C9", "#D6F6F9", "#C99700"
+        },
         (_, true) => new[]
         {
             "#121110", "#1C1B19", "#262421", "#3A3732", "#E6E1D5", "#A39D90", "#77726A", "#2E2C28", "#2F2D29",
@@ -172,6 +207,13 @@ internal static class Themes
             "#36332E", "#EDE8DC", "#C6BFAF", "#4E5A3E", "#C3C5AF", "#7A5A1E"
         }
     };
+
+    /// <summary>Window, surface, accent, text and border colour of a theme, for the little previews in the settings.</summary>
+    public static (Color Window, Color Surface, Color Accent, Color Text, Color Border) PreviewColors(string theme, bool dark)
+    {
+        var p = Palette(theme, dark).Select(Parse).ToArray();
+        return (p[0], Color.FromRgb(p[1].R, p[1].G, p[1].B), p[9], p[4], p[3]);
+    }
 
     private static Color Parse(string color) => (Color)ColorConverter.ConvertFromString(color);
 

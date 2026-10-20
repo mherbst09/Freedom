@@ -7,7 +7,8 @@
         <FontFamily x:Key="UiFont">Courier New, Consolas</FontFamily>
         <FontFamily x:Key="DisplayFont">Courier New, Consolas</FontFamily>
         <FontFamily x:Key="StencilFont">Stencil, Impact, Arial Black</FontFamily>
-        <CornerRadius x:Key="CardRadius">4</CornerRadius>
+        <CornerRadius x:Key="CardRadius">10</CornerRadius>
+        <SolidColorBrush x:Key="AccentFill" Color="#4F8BFF"/>
 
         <Style TargetType="TextBlock">
             <Setter Property="FontFamily" Value="{DynamicResource UiFont}"/>
@@ -47,7 +48,7 @@
             <Setter Property="Height" Value="46"/>
             <Setter Property="Padding" Value="18,0"/>
             <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentFill}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontFamily" Value="{DynamicResource UiFont}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
@@ -91,7 +92,7 @@
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
             <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource AccentFill}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="20"/>
             <Setter Property="FontWeight" Value="Light"/>
