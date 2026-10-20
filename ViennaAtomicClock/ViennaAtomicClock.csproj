@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -24,5 +25,12 @@
   <ItemGroup>
     <Resource Include="app.ico" />
     <InternalsVisibleTo Include="Freedom.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2849.39" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- GLB viewer: HTML, CSS, JS and the local Three.js copy are embedded, so the single-file EXE works offline. -->
+    <EmbeddedResource Include="GlbViewer\Web\**\*" LogicalName="GlbViewer/Web/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

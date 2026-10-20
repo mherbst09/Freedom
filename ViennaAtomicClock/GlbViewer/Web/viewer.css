@@ -1,0 +1,56 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+  color: #e9ecf2;
+}
+
+/* Backgrounds are CSS behind a transparent canvas: changing them costs the GPU nothing. */
+body.bg-dark { background: radial-gradient(ellipse at 50% 35%, #2c313b 0%, #1a1d24 55%, #111318 100%); }
+body.bg-light { background: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #eef0f4 50%, #d7dbe2 100%); color: #20242c; }
+body.bg-studio { background: radial-gradient(ellipse at 50% 30%, #8a9099 0%, #5a5f68 45%, #2e3138 100%); }
+body.bg-transparent {
+  background-color: #2a2d33;
+  background-image:
+    linear-gradient(45deg, #34373e 25%, transparent 25%), linear-gradient(-45deg, #34373e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #34373e 75%), linear-gradient(-45deg, transparent 75%, #34373e 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+}
+
+#stage { position: fixed; inset: 0; }
+#view { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
+
+.hint {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none; text-align: center; gap: 4px;
+}
+.hint p { margin: 0; font-size: 17px; }
+.hint-icon { font-size: 54px; opacity: 0.35; margin-bottom: 8px; }
+.muted { opacity: 0.65; font-size: 13px !important; }
+
+.panel {
+  position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%);
+  min-width: 280px; max-width: min(560px, 90vw); padding: 14px 18px; border-radius: 12px;
+  background: rgba(20, 22, 28, 0.86); color: #e9ecf2; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  animation: rise 0.18s ease-out;
+}
+.panel p { margin: 0 0 8px; font-size: 13.5px; }
+.panel p:last-child { margin-bottom: 0; }
+.message { border-left: 4px solid #f0a23a; }
+.message.error { border-left-color: #e05252; }
+.bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; margin-bottom: 8px; }
+#loadingBar { height: 100%; width: 0; background: #4f8bff; border-radius: 3px; transition: width 0.1s linear; }
+
+.drop {
+  position: absolute; inset: 12px; border: 2px dashed rgba(120, 160, 255, 0.85); border-radius: 16px;
+  display: flex; align-items: center; justify-content: center; background: rgba(40, 70, 140, 0.18); pointer-events: none;
+}
+.drop p { font-size: 20px; margin: 0; }
+
+[hidden] { display: none !important; }
+
+@keyframes rise { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } #loadingBar { transition: none; } }

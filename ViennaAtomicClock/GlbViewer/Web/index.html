@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freedom GLB Viewer</title>
+<link rel="stylesheet" href="viewer.css">
+<script type="importmap">{"imports":{"three":"./lib/three.module.min.js","three/addons/":"./lib/jsm/"}}</script>
+</head>
+<body class="bg-dark">
+<main id="stage" aria-label="3D-Ansicht">
+<canvas id="view" tabindex="0" aria-label="3D-Modell"></canvas>
+<section id="empty" class="hint">
+<div class="hint-icon" aria-hidden="true">⬡</div>
+<p id="emptyTitle">Kein Modell geladen</p>
+<p id="emptyHint" class="muted">Datei öffnen (Strg+O) oder eine .glb-Datei hierher ziehen</p>
+</section>
+<section id="loading" class="panel" hidden role="status" aria-live="polite">
+<p id="loadingText">Lade Modell …</p>
+<div class="bar"><div id="loadingBar"></div></div>
+<p id="loadingDetail" class="muted"></p>
+</section>
+<section id="dropHint" class="drop" hidden><p id="dropText">Zum Öffnen loslassen</p></section>
+<section id="message" class="panel message" hidden role="alert"><p id="messageText"></p></section>
+</main>
+<script type="module" src="viewer.js"></script>
+</body>
+</html>

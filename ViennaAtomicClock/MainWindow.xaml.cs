@@ -17,6 +17,8 @@ public partial class MainWindow : Window
     private readonly AppSettings _settings;
     private readonly CaffeineStore _caffeineStore;
     private readonly TimeZoneInfo _viennaZone;
+    /// <summary>Zone shown by the main clock; school logic always stays on Vienna time.</summary>
+    private TimeZoneInfo _displayZone;
     private static CultureInfo _culture => Loc.Culture;
     private CancellationTokenSource? _syncCancellation;
     private bool _focusMode;
@@ -73,8 +75,17 @@ public partial class MainWindow : Window
         SettingsPanel.Height = Math.Max(SettingsPanel.MinHeight, _settings.SettingsHeight);
         TodoView.Changed += () => { if (_page == "todo") UpdateHeaderForCurrentPage(); };
         NotesView.Changed += () => { if (_page == "notes") UpdateHeaderForCurrentPage(); };
+        WeatherView.Changed += () => { if (_page == "weather") UpdateHeaderForCurrentPage(); };
+        WeatherView.Notifier = new InAppNotifier(this);
+        ClickerView.Changed += UpdateHeaderForCurrentPage;
+        ViewerView.FullscreenRequested += () =>
+        {
+            if (_page == "viewer") ToggleFocusMode();
+        };
+        ViewerView.CloseRequested += () => SwitchPage(_pageBeforeViewer);
 
         _viennaZone = FindViennaTimeZone();
+        _displayZone = FindDisplayZone(_settings.TimeZoneId) ?? _viennaZone;
         DailyLimitTextBox.Text = _settings.CaffeineDailyLimitMg.ToString(_culture);
         RefreshProducts();
         RefreshCaffeineSummary();
@@ -106,6 +117,9 @@ public partial class MainWindow : Window
 
         Closing += (_, _) =>
         {
+            // The autoclicker stops first: no click, held button, hook or hotkey outlives the window.
+            ClickerView.Shutdown();
+            ViewerView.Shutdown();
             _syncCancellation?.Cancel();
             _fireworks?.Close();
             _gloom?.Close();
@@ -211,16 +225,20 @@ public partial class MainWindow : Window
     {
         var utc = _clock.UtcNow;
         var vienna = TimeZoneInfo.ConvertTime(utc, _viennaZone);
-        var microseconds = (vienna.Ticks % TimeSpan.TicksPerSecond) / 10;
+        var shown = TimeZoneInfo.ConvertTime(utc, _displayZone);
+        var microseconds = (shown.Ticks % TimeSpan.TicksPerSecond) / 10;
 
-        MainTimeText.Text = vienna.ToString("HH:mm:ss", _culture);
+        MainTimeText.Text = shown.ToString("HH:mm:ss", _culture);
         MicrosecondsText.Text = $".{microseconds:000000}";
-        DateText.Text = vienna.ToString("D", _culture);
-        SecondProgress.ScaleX = (vienna.Second + vienna.Millisecond / 1000.0) / 60.0;
+        DateText.Text = shown.ToString("D", _culture);
+        SecondProgress.ScaleX = (shown.Second + shown.Millisecond / 1000.0) / 60.0;
 
-        var offset = _viennaZone.GetUtcOffset(vienna.DateTime);
+        var offset = _displayZone.GetUtcOffset(shown.DateTime);
         UtcOffsetBadge.Text = $"UTC{(offset < TimeSpan.Zero ? "−" : "+")}{offset.Duration():hh\\:mm}";
-        DstText.Text = Loc.T(_viennaZone.IsDaylightSavingTime(vienna.DateTime) ? "clock.dst" : "clock.std");
+        var dst = _displayZone.IsDaylightSavingTime(shown.DateTime);
+        DstText.Text = _displayZone == _viennaZone
+            ? Loc.T(dst ? "clock.dst" : "clock.std")
+            : dst ? _displayZone.DaylightName : _displayZone.StandardName;
 
         CheckFireworks(vienna.DateTime);
         CheckGloom(vienna.DateTime);
@@ -598,7 +616,7 @@ public partial class MainWindow : Window
         SyncButton.Content = Loc.T("sync.running");
         SyncStatusText.Text = Loc.T("sync.connecting");
         _clockHeaderStatus = Loc.T("sync.syncing");
-        if (_page == "clock") HeaderStatusText.Text = _clockHeaderStatus;
+        if (_page == "clock" && !ClickerView.IsActive) HeaderStatusText.Text = _clockHeaderStatus;
 
         try
         {
@@ -609,7 +627,7 @@ public partial class MainWindow : Window
                 SourceText.Text = result.Server;
                 OffsetText.Text = FormatOffset(result.Offset);
                 LatencyText.Text = $"{result.RoundTrip.TotalMilliseconds:0.0} ms";
-                LastSyncText.Text = TimeZoneInfo.ConvertTime(result.CorrectedUtc, _viennaZone).ToString("HH:mm:ss", _culture);
+                LastSyncText.Text = TimeZoneInfo.ConvertTime(result.CorrectedUtc, _displayZone).ToString("HH:mm:ss", _culture);
                 SyncStatusText.Text = Loc.T("sync.ok");
                 SetClockStatus(Loc.T("sync.headerOk"), "GreenBrush", "GreenSoft");
             }
@@ -684,9 +702,80 @@ public partial class MainWindow : Window
         return TimeZoneInfo.Local;
     }
 
+    private static TimeZoneInfo? FindDisplayZone(string? id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+        catch (Exception e) when (e is TimeZoneNotFoundException or InvalidTimeZoneException) { return null; }
+    }
+
+    /// <summary>City part of a zone name, e.g. "(UTC+09:00) Osaka, Sapporo, Tokio" -> "OSAKA, SAPPORO, TOKIO".</summary>
+    private static string ZoneCities(TimeZoneInfo zone)
+    {
+        var name = zone.DisplayName;
+        var close = name.IndexOf(") ", StringComparison.Ordinal);
+        return (close >= 0 ? name[(close + 2)..] : name).ToUpper(_culture);
+    }
+
+    private void UpdateClockCity()
+    {
+        if (_displayZone == _viennaZone)
+            ClockCityText.SetResourceReference(TextBlock.TextProperty, "L.clock.city");
+        else
+            ClockCityText.Text = ZoneCities(_displayZone);
+        ClockCityText.ToolTip = _displayZone.DisplayName;
+    }
+
+    private void SetDisplayZone(TimeZoneInfo zone)
+    {
+        _displayZone = zone;
+        _settings.TimeZoneId = zone == _viennaZone ? "" : zone.Id;
+        _settings.Save();
+        UpdateClockCity();
+        RenderTime();
+        BuildTimeZoneList();
+    }
+
+    private void TimeZoneSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        TimeZoneSearchHint.Visibility = TimeZoneSearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        BuildTimeZoneList();
+    }
+
+    /// <summary>All Windows time zones, filtered by the search box; the selected one is highlighted.</summary>
+    private void BuildTimeZoneList()
+    {
+        var query = TimeZoneSearchBox.Text.Trim();
+        TimeZoneList.Children.Clear();
+        Button? selectedChip = null;
+        foreach (var zone in TimeZoneInfo.GetSystemTimeZones())
+        {
+            if (query.Length > 0
+                && !zone.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+                && !zone.Id.Contains(query, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var chip = new Button
+            {
+                Content = new TextBlock { Text = zone.DisplayName, TextTrimming = TextTrimming.CharacterEllipsis },
+                ToolTip = zone.DisplayName, Height = 32, Margin = new Thickness(0, 0, 0, 3), Padding = new Thickness(10, 0, 10, 0),
+                HorizontalContentAlignment = HorizontalAlignment.Left
+            };
+            chip.SetResourceReference(StyleProperty, "ChipButton");
+            var selected = zone.Id == _displayZone.Id;
+            SetChip(chip, selected);
+            if (selected) selectedChip = chip;
+            var picked = zone;
+            chip.Click += (_, _) => SetDisplayZone(picked);
+            TimeZoneList.Children.Add(chip);
+        }
+        if (selectedChip is not null && query.Length == 0)
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => selectedChip.BringIntoView());
+    }
+
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         UpdateSettingsPopup();
+        BuildTimeZoneList();
         SettingsPopup.IsOpen = true;
     }
 
@@ -819,6 +908,36 @@ public partial class MainWindow : Window
                 _ => Loc.T("title.notes.sub")
             };
         }
+        else if (_page == "viewer")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "VIEWER.GLB_", Themes.Anime => Loc.T("tile.viewer") + " ♡", _ => Loc.T("title.viewer") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ three --offline model.glb",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.viewer.sub"),
+                _ => Loc.T("title.viewer.sub")
+            };
+        }
+        else if (_page == "clicker")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "CLICKER.EXE_", Themes.Anime => Loc.T("tile.clicker") + " ♡", _ => Loc.T("title.clicker") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ click --cps 500",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.clicker.sub"),
+                _ => Loc.T("title.clicker.sub")
+            };
+        }
+        else if (_page == "weather")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "WEATHER.SH_", Themes.Anime => Loc.T("tile.weather") + " ♡", _ => Loc.T("title.weather") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ curl wttr --forecast",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.weather.sub"),
+                _ => Loc.T("title.weather.sub")
+            };
+        }
         else if (_showingCaffeine)
         {
             AppTitleText.Text = theme switch { Themes.Hacker => "CAFFEINE.EXE_", Themes.Anime => Loc.T("tile.coffee") + " ♡", _ => Loc.T("title.coffee") };
@@ -930,6 +1049,7 @@ public partial class MainWindow : Window
         SourceText.Text = Loc.Retranslate(SourceText.Text, "sync.system");
         OffsetText.Text = Loc.Retranslate(OffsetText.Text, "sync.na");
         UpdateTitleTexts();
+        UpdateClockCity();
         UpdateHeaderForCurrentPage();
         UpdateGroupButton();
         UpdateSettingsPopup();
@@ -940,7 +1060,7 @@ public partial class MainWindow : Window
         RefreshCaffeineSummary();
         _scheduleKey = "";
         _lastSchoolSecond = -1;
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), _ => "Freedom" };
     }
 
     private void SettingsPanel_SizeChanged(object sender, SizeChangedEventArgs e) =>
@@ -1023,6 +1143,7 @@ public partial class MainWindow : Window
             Activate();
             _focusMode = true;
             ApplyShellRadius();
+            UpdateViewerFullscreen();
         }
         else
         {
@@ -1037,6 +1158,7 @@ public partial class MainWindow : Window
             _focusMode = false;
             UpdateMaximizedMargin();
             ApplyShellRadius();
+            UpdateViewerFullscreen();
         }
     }
 
@@ -1093,6 +1215,22 @@ public partial class MainWindow : Window
         }
     }
 
+    internal void ShowToast(string title, string text, Brush? stripe)
+    {
+        ToastTitle.Text = title;
+        ToastText.Text = text;
+        if (stripe is null) ToastStripe.SetResourceReference(Border.BackgroundProperty, "AccentBrush");
+        else ToastStripe.Background = stripe;
+        System.Windows.Automation.AutomationProperties.SetName(ToastHost, $"{title}. {text}");
+        var wasHidden = ToastHost.Visibility != Visibility.Visible;
+        ToastHost.Visibility = Visibility.Visible;
+        if (wasHidden) Motion.PopIn(ToastHost, 1);
+    }
+
+    internal void HideToast() => ToastHost.Visibility = Visibility.Collapsed;
+
+    private void ToastClose_Click(object sender, RoutedEventArgs e) => HideToast();
+
     private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
@@ -1135,20 +1273,56 @@ public partial class MainWindow : Window
         SwitchPage("tutor");
     }
 
+    private void WeatherTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("weather");
+    }
+
+    private void ClickerTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("clicker");
+    }
+
+    private void ViewerTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("viewer");
+    }
+
+    private string _pageBeforeViewer = "clock";
+
+    /// <summary>The 3D viewer's full screen also hides Freedom's title bar and margins.</summary>
+    private void UpdateViewerFullscreen()
+    {
+        var full = _focusMode && _page == "viewer";
+        ViewerView.SetFullscreen(full);
+        TitleBarGrid.Visibility = full ? Visibility.Collapsed : Visibility.Visible;
+        if (WindowShell.Child is Grid shell) shell.RowDefinitions[0].Height = new GridLength(full ? 0 : 72);
+        ViewerView.Margin = full ? new Thickness(0) : new Thickness(24, 4, 24, 24);
+    }
+
     private void SwitchPage(string page)
     {
         var previous = _page;
-        _page = page is "caffeine" or "todo" or "notes" or "tutor" ? page : "clock";
+        if (page == "viewer" && previous != "viewer") _pageBeforeViewer = previous;
+        if (previous == "viewer" && page != "viewer" && _focusMode) ToggleFocusMode();
+        _page = page is "caffeine" or "todo" or "notes" or "tutor" or "weather" or "clicker" or "viewer" ? page : "clock";
         ClockPage.Visibility = _page == "clock" ? Visibility.Visible : Visibility.Collapsed;
         CaffeineScroll.Visibility = _page == "caffeine" ? Visibility.Visible : Visibility.Collapsed;
         TodoView.Visibility = _page == "todo" ? Visibility.Visible : Visibility.Collapsed;
         NotesView.Visibility = _page == "notes" ? Visibility.Visible : Visibility.Collapsed;
         TutorView.Visibility = _page == "tutor" ? Visibility.Visible : Visibility.Collapsed;
+        WeatherView.Visibility = _page == "weather" ? Visibility.Visible : Visibility.Collapsed;
+        ClickerView.Visibility = _page == "clicker" ? Visibility.Visible : Visibility.Collapsed;
+        ViewerView.Visibility = _page == "viewer" ? Visibility.Visible : Visibility.Collapsed;
+        UpdateViewerFullscreen();
         UpdateTitleTexts();
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), _ => "Freedom" };
         _settings.ActivePage = _page;
         if (previous != _page || !IsLoaded)
-            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, _ => (UIElement)ClockPage });
+            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, "weather" => WeatherView, "clicker" => ClickerView, "viewer" => ViewerView, _ => (UIElement)ClockPage });
         UpdateNavigationVisuals();
         UpdateHeaderForCurrentPage();
         if (_showingCaffeine) RefreshCaffeineSummary();
@@ -1162,10 +1336,20 @@ public partial class MainWindow : Window
         TodoTileButton.Background = (Brush)FindResource(_page == "todo" ? "AccentSoft" : "SurfaceAlt");
         NotesTileButton.Background = (Brush)FindResource(_page == "notes" ? "AccentSoft" : "SurfaceAlt");
         TutorTileButton.Background = (Brush)FindResource(_page == "tutor" ? "AccentSoft" : "SurfaceAlt");
+        WeatherTileButton.Background = (Brush)FindResource(_page == "weather" ? "AccentSoft" : "SurfaceAlt");
+        ClickerTileButton.Background = (Brush)FindResource(_page == "clicker" ? "AccentSoft" : "SurfaceAlt");
+        ViewerTileButton.Background = (Brush)FindResource(_page == "viewer" ? "AccentSoft" : "SurfaceAlt");
     }
 
     private void UpdateHeaderForCurrentPage()
     {
+        if (_page != "clicker" && ClickerView.IsActive)
+        {
+            // A running autoclicker stays visible on every page.
+            HeaderStatusText.Text = "⌖ " + Loc.T("tile.clicker") + ": " + ClickerView.StatusLine;
+            SetStatusColor((Brush)FindResource("GreenBrush"), (Brush)FindResource("GreenSoft"));
+            return;
+        }
         if (_page == "tutor")
         {
             HeaderStatusText.Text = TutorView.StatusLine;
@@ -1180,6 +1364,22 @@ public partial class MainWindow : Window
         {
             HeaderStatusText.Text = NotesView.Count == 1 ? Loc.T("notes.one") : Loc.F("notes.n", NotesView.Count);
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "weather")
+        {
+            HeaderStatusText.Text = WeatherView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "viewer")
+        {
+            HeaderStatusText.Text = ViewerView.ModelPath is { } model ? System.IO.Path.GetFileName(model) : Loc.T("glb.subtitle");
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "clicker")
+        {
+            HeaderStatusText.Text = ClickerView.StatusLine;
+            var active = ClickerView.IsActive;
+            SetStatusColor((Brush)FindResource(active ? "GreenBrush" : "AccentBrush"), (Brush)FindResource(active ? "GreenSoft" : "AccentSoft"));
         }
         else if (_showingCaffeine)
         {

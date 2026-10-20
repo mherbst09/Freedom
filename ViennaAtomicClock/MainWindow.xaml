@@ -4,6 +4,9 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:local="clr-namespace:ViennaAtomicClock"
         xmlns:tutor="clr-namespace:ViennaAtomicClock.Tutor"
+        xmlns:weather="clr-namespace:ViennaAtomicClock.Weather"
+        xmlns:clicker="clr-namespace:ViennaAtomicClock.AutoClicker"
+        xmlns:viewer="clr-namespace:ViennaAtomicClock.GlbViewer"
         Title="Freedom" Width="1120" Height="720"
         Icon="app.ico"
         MinWidth="420" MinHeight="480"
@@ -66,7 +69,7 @@
                                 <TextBlock Text="{DynamicResource L.apps}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,10"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
                                     <Button x:Name="ClockTileButton" Grid.Row="0" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ClockTileButton_Click">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◷" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Freedom" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.clock.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
@@ -81,6 +84,15 @@
                                     </Button>
                                     <Button x:Name="TutorTileButton" Grid.Row="4" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="TutorTileButton_Click">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◆" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="AI" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.ai.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="WeatherTileButton" Grid.Row="4" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="WeatherTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.weather}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="☁" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.weather}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.weather.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="ClickerTileButton" Grid.Row="6" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ClickerTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.clicker}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="⌖" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.clicker}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.clicker.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="ViewerTileButton" Grid.Row="6" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ViewerTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.viewer}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="⬡" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.viewer}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.viewer.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                 </Grid>
                             </StackPanel>
@@ -122,6 +134,17 @@
                                         <StackPanel Margin="0,0,8,0">
                                             <TextBlock Text="{DynamicResource L.settings.language}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,4,0,6"/>
                                             <WrapPanel x:Name="LanguageList"/>
+                                            <TextBlock Text="{DynamicResource L.settings.timezone}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,14,0,6"/>
+                                            <Grid>
+                                                <TextBox x:Name="TimeZoneSearchBox" Style="{StaticResource InputTextBox}" Height="36" Padding="34,0,12,0" TextChanged="TimeZoneSearchBox_TextChanged"/>
+                                                <TextBlock Text="⌕" FontSize="18" Foreground="{DynamicResource TextMuted}" Margin="11,0,0,1" HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                                <TextBlock x:Name="TimeZoneSearchHint" Text="{DynamicResource L.settings.timezone.search}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="34,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                            </Grid>
+                                            <Border Margin="0,6,0,0" BorderThickness="1" BorderBrush="{DynamicResource CardBorder}" CornerRadius="{DynamicResource CardRadius}" Padding="4">
+                                                <ScrollViewer x:Name="TimeZoneScroller" MaxHeight="190" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                                                    <StackPanel x:Name="TimeZoneList"/>
+                                                </ScrollViewer>
+                                            </Border>
                                             <TextBlock Text="{DynamicResource L.settings.appearance}" FontSize="12" Foreground="{DynamicResource TextMuted}" Margin="0,14,0,6"/>
                                             <Grid>
                                                 <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/><ColumnDefinition Width="6"/><ColumnDefinition/></Grid.ColumnDefinitions>
@@ -205,7 +228,7 @@
 
                             <Grid>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{DynamicResource L.clock.city}" FontFamily="{DynamicResource StencilFont}" FontSize="14" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ClockCityText" Text="{DynamicResource L.clock.city}" TextTrimming="CharacterEllipsis" MaxWidth="320" FontFamily="{DynamicResource StencilFont}" FontSize="14" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
                                     <Border CornerRadius="{DynamicResource CardRadius}" Background="{DynamicResource AccentSoft}" Padding="8,4" Margin="10,0,0,0">
                                         <TextBlock x:Name="UtcOffsetBadge" Text="UTC+02:00" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
                                     </Border>
@@ -524,6 +547,24 @@
             <local:TodoPage x:Name="TodoView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <local:NotesPage x:Name="NotesView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <tutor:TutorPage x:Name="TutorView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <weather:WeatherPage x:Name="WeatherView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <clicker:AutoClickerPage x:Name="ClickerView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <viewer:GlbViewerPage x:Name="ViewerView" Grid.Row="1" Grid.RowSpan="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+
+            <!-- In-app notifications (weather warnings, rain starting). -->
+            <Border x:Name="ToastHost" Grid.Row="1" Panel.ZIndex="300" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,34,34" MaxWidth="380"
+                    Background="{DynamicResource PopupBrush}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1" CornerRadius="{DynamicResource CardRadius}" Padding="16,12,8,14" Visibility="Collapsed">
+                <Border.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.3"/></Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="5"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Border x:Name="ToastStripe" CornerRadius="2" Background="{DynamicResource AccentBrush}"/>
+                    <StackPanel Grid.Column="1" Margin="12,0,6,0">
+                        <TextBlock x:Name="ToastTitle" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ToastText" FontSize="12" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="30" Height="30" Content="×" FontSize="18" VerticalAlignment="Top" ToolTip="{DynamicResource L.close}" Click="ToastClose_Click"/>
+                </Grid>
+            </Border>
 
             <!-- Custom caffeine entry dialog -->
             <Grid x:Name="CustomEntryOverlay" Grid.RowSpan="2" Background="#A8000000" Visibility="Collapsed" Panel.ZIndex="100">

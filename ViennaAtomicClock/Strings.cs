@@ -1,7 +1,7 @@
 namespace ViennaAtomicClock;
 
 /// <summary>All UI texts. Order in every row: Deutsch, English, Español, Português, Русский, 中文, 日本語.</summary>
-internal static class Strings
+internal static partial class Strings
 {
     public static readonly Dictionary<string, string[]> Table = new()
     {
@@ -20,6 +20,8 @@ internal static class Strings
         ["settings.expand"] = new[] { "Größer / kleiner", "Larger / smaller", "Más grande / más pequeño", "Maior / menor", "Больше / меньше", "放大 / 缩小", "大きく / 小さく" },
         ["settings.resize"] = new[] { "Ziehen, um die Größe zu ändern", "Drag to resize", "Arrastra para cambiar el tamaño", "Arraste para redimensionar", "Потяните, чтобы изменить размер", "拖动以调整大小", "ドラッグしてサイズ変更" },
         ["settings.language"] = new[] { "Sprache", "Language", "Idioma", "Idioma", "Язык", "语言", "言語" },
+        ["settings.timezone"] = new[] { "Zeitzone", "Time zone", "Zona horaria", "Fuso horário", "Часовой пояс", "时区", "タイムゾーン" },
+        ["settings.timezone.search"] = new[] { "Stadt oder UTC suchen …", "Search city or UTC …", "Buscar ciudad o UTC …", "Pesquisar cidade ou UTC …", "Поиск города или UTC …", "搜索城市或 UTC …", "都市または UTC を検索 …" },
         ["settings.appearance"] = new[] { "Darstellung", "Appearance", "Apariencia", "Aparência", "Оформление", "外观", "表示" },
         ["settings.theme"] = new[] { "Theme", "Theme", "Tema", "Tema", "Тема", "主题", "テーマ" },
         ["mode.light"] = new[] { "Hell", "Light", "Claro", "Claro", "Светлая", "浅色", "ライト" },

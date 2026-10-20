@@ -1,0 +1,8 @@
+Testmodelle aus https://github.com/KhronosGroup/glTF-Sample-Assets (Ordner Models/<Name>/glTF-Binary).
+Lizenzen laut Repository (CC0 bzw. CC-BY 4.0):
+- DamagedHelmet.glb  - CC-BY 4.0, theblueturtle_
+- Fox.glb            - CC0/CC-BY 4.0, PixelMannen, tomkranis, AsoboStudio, scurest
+- BoxAnimated.glb    - CC-BY 4.0, Cesium
+- AnimatedMorphCube.glb - CC-BY 4.0, Microsoft
+- AlphaBlendModeTest.glb - CC0, Analytical Graphics
+Nur fuer Tests, nicht Teil der App.

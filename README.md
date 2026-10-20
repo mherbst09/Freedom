@@ -11,6 +11,8 @@ Windows-Desktop-App (WPF, .NET 9) für den Schulalltag an der HTL: NTP-genaue Uh
 - **Aufgaben:** Listen, Mein Tag, Wichtig, Fälligkeiten, Details mit Notiz.
 - **Notizen (wie OneNote):** Abschnitte mit Seiten, Menüband (Fett, Kursiv, Textmarker, Schriftfarbe, Überschriften, Listen, Einzüge), Aufgaben-/Wichtig-/Frage-Tags, Tabellen, Bilder, Datumsstempel, Suche, Anheften, automatisches Speichern, Export als .txt, .pdf und .docx sowie Drucken.
 - **AI – Eagle 1.1:** lokale Lern-KI für C#, OOP, Unity, UML, Patterns, SQL und mehr über Ollama, ohne Cloud. Details: [`ViennaAtomicClock/Tutor/README.md`](ViennaAtomicClock/Tutor/README.md).
+- **Wetter:** aktuelles Wetter über einem animierten Himmel (Sonne, Sterne, Wolken, Regen, Gewitter, Schnee, Nebel, Dämmerung), Unwetterwarnungen von GeoSphere Austria, Niederschlag der nächsten Stunde, Stundenleiste mit Sonnenauf-/untergang, 10-Tage-Vorhersage mit gemeinsamer Temperaturskala, Wetterkarte (Niederschlag, Temperatur, Wind, Luftqualität, Bewölkung, Luftdruck) mit Zeitachse, zwölf Detailkarten (Luftqualität, UV, Wind, Sonne, Niederschlag, gefühlte Temperatur, Feuchte, Sicht, Luftdruck, Wolken, Mond, Durchschnittswerte), mehrere Orte mit Suche (Name oder Postleitzahl), Windows-Standortbestimmung, Einheiten, Offline-Cache. Daten: Open-Meteo (CC BY 4.0), GeoSphere Austria, OpenStreetMap – ohne API-Schlüssel.
+- **Autoclicker:** 1 bis 500 Klicks pro Sekunde mit eigener hochauflösender Klick-Engine, Zeitintervall oder CPS, zufällige Abweichung, alle fünf Maustasten, Einzel-/Doppel-/Dreifachklick und Halten, feste Anzahl, Dauer oder „solange Taste gehalten“, feste Position, Klickrouten und Zufallsbereich mit Positionsauswahl über alle Monitore, globale Hotkeys (F6 Start/Stopp, F7 Pause, F8 Notstopp, Esc während des Laufs), Profile mit Import/Export, Maus-Aufzeichnung und Wiedergabe (nur Maus, keine Tastatur) sowie ein Testmodus, der die echte Klickrate misst, ohne zu klicken.
 - **Themes:** Standard, Eagle, Kriegsfilm, Hacker, Anime, Tetris, America, Minecraft, Mystisch – jeweils hell, dunkel oder „Farbig“ mit eigenem Farbwähler. Fenster ist responsiv.
 
 ## Bauen und starten
@@ -29,7 +31,9 @@ Tests: `cd Freedom.Tests` und `dotnet test`.
 
 ## Daten
 
-Alle persönlichen Daten (Einstellungen, Stundenplan-Cache, Koffein-Einträge, Aufgaben, Notizen, KI-Chats und Wissensdateien) liegen nur lokal unter `%AppData%\ViennaAtomicClock\` und nie im Projektordner.
+Alle persönlichen Daten (Einstellungen, Stundenplan-Cache, Koffein-Einträge, Aufgaben, Notizen, KI-Chats und Wissensdateien, Wetter-Orte und -Cache, Autoclicker-Profile und -Aufnahmen) liegen nur lokal unter `%AppData%\ViennaAtomicClock\` und nie im Projektordner.
+
+Der Autoclicker startet nie von selbst. Sobald seine Seite einmal geöffnet wurde, sind seine globalen Hotkeys bei jedem Start von Freedom aktiv (abschaltbar in der Hotkey-Karte). Windows lässt normale Programme nicht in Programme mit Administratorrechten oder den Sperrbildschirm klicken; Freedom umgeht das nicht.
 
 ## Genauigkeit der Uhr
 
