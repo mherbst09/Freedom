@@ -218,6 +218,7 @@ public sealed class JitterTests
     }
 }
 
+[Collection(TimingCollection.Name)]
 public sealed class ClickEngineTests
 {
     private readonly ITestOutputHelper _output;

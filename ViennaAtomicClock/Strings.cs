@@ -59,6 +59,12 @@ internal static partial class Strings
         ["theme.america.hint"] = new[] { "Stars and Stripes, wehende Fahne", "Stars and stripes, waving flag", "Barras y estrellas, bandera ondeando", "Estrelas e listras, bandeira ao vento", "Звёзды и полосы, флаг", "星条旗飘扬", "星条旗がはためく" },
         ["theme.minecraft"] = new[] { "Minecraft", "Minecraft", "Minecraft", "Minecraft", "Майнкрафт", "我的世界", "マインクラフト" },
         ["theme.minecraft.hint"] = new[] { "Blöcke, Wolken, Pixel-Look", "Blocks, clouds, pixel look", "Bloques, nubes, estilo píxel", "Blocos, nuvens, estilo píxel", "Блоки, облака, пиксели", "方块、云朵、像素风", "ブロック、雲、ピクセル" },
+        ["theme.christmas"] = new[] { "Weihnachten", "Christmas", "Navidad", "Natal", "Рождество", "圣诞节", "クリスマス" },
+        ["theme.christmas.hint"] = new[] { "Schnee, Tannengrün, Lichterglanz", "Snow, fir trees, festive lights", "Nieve, abetos, luces festivas", "Neve, pinheiros, luzes festivas", "Снег, ели, праздничные огни", "雪花、杉树、节日彩灯", "雪、モミの木、イルミネーション" },
+        ["theme.halloween"] = new[] { "Halloween", "Halloween", "Halloween", "Halloween", "Хэллоуин", "万圣节", "ハロウィン" },
+        ["theme.halloween.hint"] = new[] { "Mondlicht, Nebel, Fledermäuse", "Moonlight, mist, bats", "Luz de luna, niebla, murciélagos", "Luar, nevoeiro, morcegos", "Лунный свет, туман, летучие мыши", "月光、薄雾、蝙蝠", "月明かり、霧、コウモリ" },
+        ["theme.jungle"] = new[] { "Jungle", "Jungle", "Jungla", "Selva", "Джунгли", "丛林", "ジャングル" },
+        ["theme.jungle.hint"] = new[] { "Blätter, Lianen, Glühwürmchen", "Leaves, vines, fireflies", "Hojas, lianas, luciérnagas", "Folhas, lianas, pirilampos", "Листья, лианы, светлячки", "树叶、藤蔓、萤火虫", "葉、ツタ、ホタル" },
 
         // App switcher and title bar
         ["apps"] = new[] { "APPS", "APPS", "APPS", "APPS", "ПРИЛОЖЕНИЯ", "应用", "アプリ" },

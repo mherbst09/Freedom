@@ -92,6 +92,11 @@ public partial class MainWindow : Window
             if (_page == "viewer") ToggleFocusMode();
         };
         ViewerView.CloseRequested += () => SwitchPage(_pageBeforeViewer);
+        TreemanView.CloseRequested += () => SwitchPage(_pageBeforeTreeman);
+        TreemanView.Changed += () => { if (_page == "treeman") UpdateHeaderForCurrentPage(); };
+        FileFlowView.Changed += () => { if (_page == "fileflow") UpdateHeaderForCurrentPage(); };
+        SpaceHelperView.Changed += () => { if (_page == "spacehelper") UpdateHeaderForCurrentPage(); };
+        PunchFactoryView.Changed += () => { if (_page == "punchfactory") UpdateHeaderForCurrentPage(); };
 
         _viennaZone = FindViennaTimeZone();
         _displayZone = FindDisplayZone(_settings.TimeZoneId) ?? _viennaZone;
@@ -130,6 +135,10 @@ public partial class MainWindow : Window
             // The autoclicker stops first: no click, held button, hook or hotkey outlives the window.
             ClickerView.Shutdown();
             ViewerView.Shutdown();
+            TreemanView.Shutdown();
+            FileFlowView.Shutdown(); // deletes every temporary copy
+            SpaceHelperView.Shutdown();
+            PunchFactoryView.Shutdown(); // saves the game
             _syncCancellation?.Cancel();
             _classCatalogCancellation?.Cancel();
             _classSelectionCancellation?.Cancel();
@@ -1012,6 +1021,9 @@ public partial class MainWindow : Window
         EagleLayer.Visibility = theme == Themes.Eagle ? Visibility.Visible : Visibility.Collapsed;
         MysticLayer.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
         MysticTop.Visibility = theme == Themes.Mystic ? Visibility.Visible : Visibility.Collapsed;
+        ChristmasLayer.Visibility = theme == Themes.Christmas ? Visibility.Visible : Visibility.Collapsed;
+        HalloweenLayer.Visibility = theme == Themes.Halloween ? Visibility.Visible : Visibility.Collapsed;
+        JungleLayer.Visibility = theme == Themes.Jungle ? Visibility.Visible : Visibility.Collapsed;
         if (theme == Themes.Mystic) MysticLayer.RefreshTheme();
 
         var accent = ((SolidColorBrush)FindResource("AccentBrush")).Color;
@@ -1026,6 +1038,9 @@ public partial class MainWindow : Window
             Themes.Minecraft => new System.Windows.Media.Effects.DropShadowEffect { Color = Colors.Black, BlurRadius = 0, ShadowDepth = 5, Direction = 315, Opacity = 0.6 },
             Themes.Eagle => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 24, ShadowDepth = 0, Opacity = App.IsDark ? 0.6 : 0.35 },
             Themes.Mystic => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 28, ShadowDepth = 0, Opacity = App.IsDark ? 0.7 : 0.45 },
+            Themes.Christmas => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 22, ShadowDepth = 0, Opacity = App.IsDark ? 0.62 : 0.32 },
+            Themes.Halloween => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 26, ShadowDepth = 0, Opacity = App.IsDark ? 0.72 : 0.38 },
+            Themes.Jungle => new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 24, ShadowDepth = 0, Opacity = App.IsDark ? 0.64 : 0.34 },
             _ => App.CustomColor is not null && theme != Themes.Standard ? new System.Windows.Media.Effects.DropShadowEffect { Color = accent, BlurRadius = 16, ShadowDepth = 0, Opacity = 0.45 } : null
         };
         LessonCountdownGlow.Effect = theme == Themes.Hacker && App.IsDark
@@ -1035,7 +1050,8 @@ public partial class MainWindow : Window
         LessonCountdownGlow.Visibility = LessonCountdownGlow.Effect is null ? Visibility.Collapsed : Visibility.Visible;
         AppSwitcherButton.Content = theme switch
         {
-            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", Themes.Eagle => "✦", Themes.Mystic => "🌸", _ => "⊞"
+            Themes.Hacker => ">_", Themes.Anime => "🐾", Themes.Tetris => "▦", Themes.America => "★", Themes.Minecraft => "⛏", Themes.Eagle => "✦", Themes.Mystic => "🌸",
+            Themes.Christmas => "🎄", Themes.Halloween => "🎃", Themes.Jungle => "🌿", _ => "⊞"
         };
         AppSwitcherButton.FontSize = theme == Themes.Hacker ? 17 : 22;
 
@@ -1061,6 +1077,9 @@ public partial class MainWindow : Window
         EagleLayer.Radius = inner;
         MysticLayer.Radius = inner;
         MysticTop.Radius = inner;
+        ChristmasLayer.Radius = inner;
+        HalloweenLayer.Radius = inner;
+        JungleLayer.Radius = inner;
     }
 
     private void UpdateTitleTexts()
@@ -1089,6 +1108,46 @@ public partial class MainWindow : Window
                 Themes.Hacker => "root@freedom:~$ vim notes",
                 Themes.Anime => "nya~ ♡ " + Loc.T("title.notes.sub"),
                 _ => Loc.T("title.notes.sub")
+            };
+        }
+        else if (_page == "punchfactory")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "PUNCH.EXE_", Themes.Anime => Loc.T("title.punchfactory") + " ♡", _ => Loc.T("title.punchfactory") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ punch --forever",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.punchfactory.sub"),
+                _ => Loc.T("title.punchfactory.sub")
+            };
+        }
+        else if (_page == "spacehelper")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "DF -H_", Themes.Anime => Loc.T("title.spacehelper") + " ♡", _ => Loc.T("title.spacehelper") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ du -sh /*",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.spacehelper.sub"),
+                _ => Loc.T("title.spacehelper.sub")
+            };
+        }
+        else if (_page == "fileflow")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "FILEFLOW.SH_", Themes.Anime => "FileFlow ♡", _ => Loc.T("title.fileflow") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ ffmpeg -i in -o out",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.fileflow.sub"),
+                _ => Loc.T("title.fileflow.sub")
+            };
+        }
+        else if (_page == "treeman")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "TREEMAN.EXE_", Themes.Anime => "Treeman ♡", _ => Loc.T("title.treeman") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ chop --both-sides",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.treeman.sub"),
+                _ => Loc.T("title.treeman.sub")
             };
         }
         else if (_page == "viewer")
@@ -1244,7 +1303,7 @@ public partial class MainWindow : Window
         _lastRenderedClockSecond = long.MinValue;
         _scheduleKey = "";
         _lastSchoolSecond = -1;
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), _ => "Freedom" };
     }
 
     private void SettingsPanel_SizeChanged(object sender, SizeChangedEventArgs e) =>
@@ -1374,6 +1433,11 @@ public partial class MainWindow : Window
             ToggleFocusMode();
             e.Handled = true;
         }
+        else if (_page == "treeman" && !AppSwitcherPopup.IsOpen)
+        {
+            TreemanView.HandleKey(e);
+            if (e.Handled && !TreemanView.IsKeyboardFocusWithin) TreemanView.Focus();
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1481,6 +1545,32 @@ public partial class MainWindow : Window
         SwitchPage("viewer");
     }
 
+    private string _pageBeforeTreeman = "clock";
+
+    private void PunchFactoryTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("punchfactory");
+    }
+
+    private void SpaceHelperTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("spacehelper");
+    }
+
+    private void FileFlowTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("fileflow");
+    }
+
+    private void TreemanTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("treeman");
+    }
+
     private string _pageBeforeViewer = "clock";
 
     /// <summary>The 3D viewer's full screen also hides Freedom's title bar and margins.</summary>
@@ -1498,7 +1588,8 @@ public partial class MainWindow : Window
         var previous = _page;
         if (page == "viewer" && previous != "viewer") _pageBeforeViewer = previous;
         if (previous == "viewer" && page != "viewer" && _focusMode) ToggleFocusMode();
-        _page = page is "caffeine" or "todo" or "notes" or "tutor" or "weather" or "clicker" or "viewer" ? page : "clock";
+        if (page == "treeman" && previous != "treeman") _pageBeforeTreeman = previous;
+        _page = page is "caffeine" or "todo" or "notes" or "tutor" or "weather" or "clicker" or "viewer" or "treeman" or "fileflow" or "spacehelper" or "punchfactory" ? page : "clock";
         ClockPage.Visibility = _page == "clock" ? Visibility.Visible : Visibility.Collapsed;
         CaffeineScroll.Visibility = _page == "caffeine" ? Visibility.Visible : Visibility.Collapsed;
         TodoView.Visibility = _page == "todo" ? Visibility.Visible : Visibility.Collapsed;
@@ -1507,12 +1598,16 @@ public partial class MainWindow : Window
         WeatherView.Visibility = _page == "weather" ? Visibility.Visible : Visibility.Collapsed;
         ClickerView.Visibility = _page == "clicker" ? Visibility.Visible : Visibility.Collapsed;
         ViewerView.Visibility = _page == "viewer" ? Visibility.Visible : Visibility.Collapsed;
+        TreemanView.Visibility = _page == "treeman" ? Visibility.Visible : Visibility.Collapsed;
+        FileFlowView.Visibility = _page == "fileflow" ? Visibility.Visible : Visibility.Collapsed;
+        SpaceHelperView.Visibility = _page == "spacehelper" ? Visibility.Visible : Visibility.Collapsed;
+        PunchFactoryView.Visibility = _page == "punchfactory" ? Visibility.Visible : Visibility.Collapsed;
         UpdateViewerFullscreen();
         UpdateTitleTexts();
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), _ => "Freedom" };
         _settings.ActivePage = _page;
         if (previous != _page || !IsLoaded)
-            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, "weather" => WeatherView, "clicker" => ClickerView, "viewer" => ViewerView, _ => (UIElement)ClockPage });
+            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, "weather" => WeatherView, "clicker" => ClickerView, "viewer" => ViewerView, "treeman" => TreemanView, "fileflow" => FileFlowView, "spacehelper" => SpaceHelperView, "punchfactory" => PunchFactoryView, _ => (UIElement)ClockPage });
         UpdateNavigationVisuals();
         UpdateHeaderForCurrentPage();
         if (_showingCaffeine) RefreshCaffeineSummary();
@@ -1529,6 +1624,10 @@ public partial class MainWindow : Window
         WeatherTileButton.Background = (Brush)FindResource(_page == "weather" ? "AccentSoft" : "SurfaceAlt");
         ClickerTileButton.Background = (Brush)FindResource(_page == "clicker" ? "AccentSoft" : "SurfaceAlt");
         ViewerTileButton.Background = (Brush)FindResource(_page == "viewer" ? "AccentSoft" : "SurfaceAlt");
+        TreemanTileButton.Background = (Brush)FindResource(_page == "treeman" ? "AccentSoft" : "SurfaceAlt");
+        FileFlowTileButton.Background = (Brush)FindResource(_page == "fileflow" ? "AccentSoft" : "SurfaceAlt");
+        SpaceHelperTileButton.Background = (Brush)FindResource(_page == "spacehelper" ? "AccentSoft" : "SurfaceAlt");
+        PunchFactoryTileButton.Background = (Brush)FindResource(_page == "punchfactory" ? "AccentSoft" : "SurfaceAlt");
     }
 
     private void UpdateHeaderForCurrentPage()
@@ -1558,6 +1657,26 @@ public partial class MainWindow : Window
         else if (_page == "weather")
         {
             HeaderStatusText.Text = WeatherView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "punchfactory")
+        {
+            HeaderStatusText.Text = PunchFactoryView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "spacehelper")
+        {
+            HeaderStatusText.Text = SpaceHelperView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "fileflow")
+        {
+            HeaderStatusText.Text = FileFlowView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "treeman")
+        {
+            HeaderStatusText.Text = TreemanView.StatusLine;
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
         }
         else if (_page == "viewer")

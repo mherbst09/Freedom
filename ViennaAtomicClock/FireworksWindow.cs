@@ -382,6 +382,18 @@ internal sealed class FireworksCanvas : FrameworkElement
     private static readonly Geometry BombHighlightGeometry = CreatePolyline(new Point(-3, -10), new Point(-4.5, -3), new Point(-3.5, 6), new Point(-1, 12));
     private static readonly Geometry BombBodyGeometry = CreateBombBodyGeometry();
     private static readonly Brush BombMetalBrush = CreateBombMetalBrush();
+    private static readonly (int A, int B)[] CubeEdges =
+    {
+        (0, 1), (1, 3), (3, 2), (2, 0),
+        (4, 5), (5, 7), (7, 6), (6, 4),
+        (0, 4), (1, 5), (2, 6), (3, 7)
+    };
+    private static readonly int[][] CubeFaces =
+    {
+        new[] { 0, 1, 3, 2 }, new[] { 4, 6, 7, 5 },
+        new[] { 0, 4, 5, 1 }, new[] { 2, 3, 7, 6 },
+        new[] { 0, 2, 6, 4 }, new[] { 1, 5, 7, 3 }
+    };
     // Full-screen colour washes stay below 3 per second (photosensitivity guideline).
     private const double MinWashGap = 0.34;
 
@@ -414,6 +426,7 @@ internal sealed class FireworksCanvas : FrameworkElement
     private double _time;
     private double _lastWash = -10;
     private double _coinRainCarry;
+    private int _depthDetail = 2;
 
     public FireworksCanvas(ShowPlan show, double width, double height)
     {
@@ -443,6 +456,7 @@ internal sealed class FireworksCanvas : FrameworkElement
 
     public void ReduceLoad()
     {
+        if (_depthDetail > 0) _depthDetail--;
         var reduced = Math.Max(650, (int)(_maxSparks * 0.72));
         if (reduced >= _maxSparks) return;
         _maxSparks = reduced;
@@ -1112,6 +1126,7 @@ internal sealed class FireworksCanvas : FrameworkElement
             dc.DrawRectangle(GetBrush(wash.Color, wash.Strength * (1 - wash.Age / WashSeconds)), null, new Rect(0, 0, _width, _height));
 
         DrawSunburst(dc, dim);
+        DrawPerspectiveTunnel(dc, dim);
 
         foreach (var flash in _flashes)
         {
@@ -1180,14 +1195,28 @@ internal sealed class FireworksCanvas : FrameworkElement
         var coinFill = GetBrush(Color.FromRgb(255, 200, 40), 1);
         var coinRim = GetPen(Color.FromRgb(176, 112, 0), 1, 2);
         var coinShine = GetBrush(Color.FromRgb(255, 250, 200), 0.9);
+        var coinIndex = 0;
         foreach (var coin in _coins)
         {
             var squash = Math.Abs(Math.Cos(coin.Phase));
             var rx = Math.Max(1.2, coin.Size * squash);
+            if (_depthDetail > 0 && (coinIndex++ & 1) == 0)
+            {
+                var edge = Math.Sin(coin.Phase) * coin.Size * 0.22;
+                dc.DrawEllipse(GetBrush(Color.FromRgb(126, 72, 0), 0.9), coinRim,
+                    new Point(coin.X + edge, coin.Y + coin.Size * 0.12), rx, coin.Size);
+            }
             dc.DrawEllipse(coinFill, coinRim, new Point(coin.X, coin.Y), rx, coin.Size);
             if (squash > 0.5)
+            {
                 dc.DrawEllipse(coinShine, null, new Point(coin.X - rx * 0.3, coin.Y - coin.Size * 0.35), rx * 0.25, coin.Size * 0.2);
+                if (_depthDetail > 0)
+                    dc.DrawEllipse(null, GetPen(Color.FromRgb(255, 238, 126), 0.75, Math.Max(0.7, coin.Size * 0.09)),
+                        new Point(coin.X, coin.Y), rx * 0.62, coin.Size * 0.68);
+            }
         }
+
+        DrawEnergyCubes(dc, dim);
 
         foreach (var cue in _activeCues)
             if (cue.Kind == CueKind.Eagle)
@@ -1242,6 +1271,124 @@ internal sealed class FireworksCanvas : FrameworkElement
             dc.DrawGeometry(GetBrush(RainbowColor(i * 40 + _time * 90), alpha * 0.14), null, _sunburstRays[i]);
         }
         dc.Pop();
+    }
+
+    private void DrawPerspectiveTunnel(DrawingContext dc, double dim)
+    {
+        if (_depthDetail <= 0) return;
+        var alpha = TitleAlpha() * dim;
+        if (alpha <= 0) return;
+
+        var vanishing = new Point(
+            _center.X + Math.Sin(_time * 0.55) * _focus.Width * 0.035,
+            _center.Y + _focus.Height * 0.12 + Math.Cos(_time * 0.42) * _focus.Height * 0.015);
+        var rays = _depthDetail > 1 ? 12 : 8;
+        var rayPen = GetPen(Hsv(_time * 80 + 205), alpha * 0.24, _depthDetail > 1 ? 1.5 : 1);
+        for (var i = 0; i <= rays; i++)
+        {
+            var bottomX = _focus.Left + _focus.Width * i / rays;
+            dc.DrawLine(rayPen, vanishing, new Point(bottomX, _focus.Bottom));
+        }
+
+        var frames = _depthDetail > 1 ? 9 : 5;
+        for (var i = 0; i < frames; i++)
+        {
+            var travel = (_time * 0.42 + i / (double)frames) % 1;
+            var eased = travel * travel;
+            var halfW = _focus.Width * (0.035 + eased * 0.57);
+            var halfH = _focus.Height * (0.025 + eased * 0.52);
+            var centerY = vanishing.Y + eased * (_focus.Bottom - vanishing.Y) * 0.44;
+            var color = Hsv(_time * 110 + i * 360.0 / frames);
+            var pen = GetPen(color, alpha * (0.18 + travel * 0.34), 1 + travel * 2.2);
+            dc.DrawRoundedRectangle(null, pen,
+                new Rect(vanishing.X - halfW, centerY - halfH, halfW * 2, halfH * 2),
+                8 + travel * 24, 8 + travel * 24);
+        }
+    }
+
+    private void DrawEnergyCubes(DrawingContext dc, double dim)
+    {
+        if (_depthDetail <= 0) return;
+        var alpha = TitleAlpha() * dim;
+        if (alpha <= 0) return;
+
+        var pulseAtStart = Math.Exp(-Math.Max(0, _time - 0.05) * 1.7);
+        var finaleAge = Math.Max(0, _time - FireworkShow.FinaleJackpotAt);
+        var jackpotPulse = Math.Exp(-finaleAge * 1.8);
+        var pulse = 1 + 0.32 * Math.Max(pulseAtStart, jackpotPulse) * Math.Abs(Math.Sin(_time * 10));
+        var size = MinFocus * 0.105 * pulse;
+        var count = _depthDetail > 1 ? 4 : 2;
+        var centers = new[]
+        {
+            new Point(_focus.Left + _focus.Width * 0.14, _focus.Top + _focus.Height * 0.3),
+            new Point(_focus.Right - _focus.Width * 0.14, _focus.Top + _focus.Height * 0.27),
+            new Point(_focus.Left + _focus.Width * 0.2, _focus.Top + _focus.Height * 0.69),
+            new Point(_focus.Right - _focus.Width * 0.2, _focus.Top + _focus.Height * 0.66)
+        };
+
+        for (var i = 0; i < count; i++)
+        {
+            var bob = Math.Sin(_time * (1.35 + i * 0.11) + i * 1.7) * MinFocus * 0.025;
+            var center = new Point(centers[i].X, centers[i].Y + bob);
+            DrawNeonCube(dc, center, size * (i > 1 ? 0.78 : 1),
+                _time * (0.72 + i * 0.08) + i,
+                _time * (0.94 - i * 0.06) - i * 0.5,
+                Hsv(_time * 95 + i * 78), alpha * 0.9);
+        }
+    }
+
+    private void DrawNeonCube(DrawingContext dc, Point center, double size, double angleX, double angleY, Color color, double alpha)
+    {
+        var projected = new Point[8];
+        var depths = new double[8];
+        var cosX = Math.Cos(angleX);
+        var sinX = Math.Sin(angleX);
+        var cosY = Math.Cos(angleY);
+        var sinY = Math.Sin(angleY);
+
+        for (var i = 0; i < 8; i++)
+        {
+            var x = (i & 1) == 0 ? -1.0 : 1.0;
+            var y = (i & 2) == 0 ? -1.0 : 1.0;
+            var z = (i & 4) == 0 ? -1.0 : 1.0;
+            var rx = x * cosY + z * sinY;
+            var rz = -x * sinY + z * cosY;
+            var ry = y * cosX - rz * sinX;
+            rz = y * sinX + rz * cosX;
+            var perspective = 1 / (3.15 - rz * 0.48);
+            projected[i] = new Point(center.X + rx * size * perspective * 2.35,
+                center.Y + ry * size * perspective * 2.35);
+            depths[i] = rz;
+        }
+
+        var order = Enumerable.Range(0, CubeFaces.Length)
+            .OrderBy(face => CubeFaces[face].Average(vertex => depths[vertex]))
+            .ToArray();
+        foreach (var faceIndex in order)
+        {
+            var face = CubeFaces[faceIndex];
+            var geometry = new StreamGeometry();
+            using (var path = geometry.Open())
+            {
+                path.BeginFigure(projected[face[0]], true, true);
+                path.PolyLineTo(face.Skip(1).Select(vertex => projected[vertex]).ToArray(), true, true);
+            }
+            geometry.Freeze();
+            var depth = face.Average(vertex => depths[vertex]);
+            dc.DrawGeometry(GetBrush(Mix(color, Colors.White, Math.Clamp((depth + 1.7) / 5, 0, 0.35)), alpha * 0.055), null, geometry);
+        }
+
+        var glow = GetPen(color, alpha * 0.22, Math.Max(3, size * 0.075));
+        var edge = GetPen(Mix(color, Colors.White, 0.45), alpha * 0.95, Math.Max(1, size * 0.018));
+        foreach (var (a, b) in CubeEdges)
+        {
+            dc.DrawLine(glow, projected[a], projected[b]);
+            dc.DrawLine(edge, projected[a], projected[b]);
+        }
+        foreach (var point in projected)
+            dc.DrawEllipse(GetBrush(Colors.White, alpha * 0.8), null, point, Math.Max(1.2, size * 0.022), Math.Max(1.2, size * 0.022));
+        dc.DrawEllipse(GetBrush(color, alpha * 0.25), null, center, size * 0.16, size * 0.16);
+        dc.DrawEllipse(GetBrush(Colors.White, alpha), null, center, size * 0.045, size * 0.045);
     }
 
     private Geometry[] CreateSunburstRays()

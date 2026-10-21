@@ -613,6 +613,7 @@ public sealed class WeatherTextTests
     }
 }
 
+[Collection(TimingCollection.Name)]
 public sealed class WeatherRenderTests
 {
     private readonly ITestOutputHelper _output;

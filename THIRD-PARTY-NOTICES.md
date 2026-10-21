@@ -17,6 +17,23 @@ Der GLB-Viewer verwendet das Microsoft.Web.WebView2 SDK. Die gemeinsam installie
 - NuGet-Paket: `Microsoft.Web.WebView2` 1.0.4258.31
 - Lizenz- und Produktbedingungen: <https://www.nuget.org/packages/Microsoft.Web.WebView2/>
 
+## PdfPig 0.1.16
+
+FileFlow verwendet PdfPig zum Lesen und Extrahieren von Text aus PDF-Dokumenten. Das NuGet-Paket wird mit Freedom ausgeliefert.
+
+- Projekt: <https://github.com/UglyToad/PdfPig>
+- NuGet-Paket: `PdfPig` 0.1.16
+- Lizenz: Apache License 2.0
+
+## Optionale FileFlow-Werkzeuge
+
+FileFlow kann lokal installierte Programme als getrennte Prozesse aufrufen. Sie werden nicht mit `Freedom.exe` gebündelt und unterliegen ihren eigenen Lizenzen und Nutzungsbedingungen.
+
+- FFmpeg: <https://ffmpeg.org/> – LGPL 2.1+ oder, abhängig vom verwendeten Build und dessen aktivierten Komponenten, GPL 2+
+- LibreOffice: <https://www.libreoffice.org/> – Mozilla Public License 2.0
+- yt-dlp: <https://github.com/yt-dlp/yt-dlp> – Unlicense
+- Deno: <https://deno.com/> – MIT; wird von aktuellen yt-dlp-Versionen für bestimmte YouTube-Verarbeitungen benötigt
+
 ## three.js r169
 
 Der Offline-GLB-Viewer enthält three.js, GLTFLoader, OrbitControls, DRACOLoader, KTX2Loader, RoomEnvironment und zugehörige Hilfsdateien.

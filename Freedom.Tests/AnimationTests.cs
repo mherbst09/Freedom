@@ -61,6 +61,48 @@ public sealed class AnimationTests
     }
 
     [Fact]
+    public void Christmas_halloween_and_jungle_have_complete_palettes_texts_and_layers()
+    {
+        UiTestHost.Run(() =>
+        {
+            var themes = new (string Id, Func<AnimatedLayer> Layer)[]
+            {
+                (Themes.Christmas, () => new ChristmasBackdrop()),
+                (Themes.Halloween, () => new HalloweenBackdrop()),
+                (Themes.Jungle, () => new JungleBackdrop())
+            };
+
+            try
+            {
+                foreach (var (id, createLayer) in themes)
+                {
+                    Assert.Equal(id, Themes.Normalize(id));
+                    Assert.NotEqual(Themes.PreviewColors(id, false), Themes.PreviewColors(id, true));
+                    Assert.True(Strings.Table.TryGetValue("theme." + id, out var names));
+                    Assert.True(Strings.Table.TryGetValue("theme." + id + ".hint", out var hints));
+                    Assert.Equal(Loc.Languages.Length, names!.Length);
+                    Assert.Equal(Loc.Languages.Length, hints!.Length);
+
+                    foreach (var dark in new[] { false, true })
+                    {
+                        App.ApplyTheme(id, dark);
+                        Assert.NotNull(ThemePreview.Create(id, dark));
+                        var layer = createLayer();
+                        Assert.Equal(24, layer.TargetFramesPerSecond);
+                        var bitmap = UiTestHost.Render(layer, 960, 540);
+                        Assert.True(HasVisiblePixels(bitmap), $"{id} {(dark ? "dark" : "light")} rendered empty.");
+                        UiTestHost.SaveIfRequested(bitmap, $"theme-{id}-{(dark ? "dark" : "light")}");
+                    }
+                }
+            }
+            finally
+            {
+                App.ApplyTheme(Themes.Standard, true);
+            }
+        });
+    }
+
+    [Fact]
     public void Both_overlays_advance_and_render_a_complete_show_without_errors()
     {
         Exception? failure = null;
@@ -99,6 +141,39 @@ public sealed class AnimationTests
         thread.Start();
         Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "Animation render test timed out.");
         Assert.Null(failure);
+    }
+
+    [Fact]
+    public void Enhanced_depth_scenes_render_key_frames()
+    {
+        UiTestHost.Run(() =>
+        {
+            const int width = 1280;
+            const int height = 720;
+            const double dt = 1.0 / 60;
+            var focus = new Rect(0, 0, width, height);
+            var fireworks = new FireworksCanvas(FireworkShow.Create(width, height, focus, new Random(42)), width, height);
+            var gloomPlan = GloomPlan.Create(focus, new Random(42));
+            var gloom = new GloomCanvas(gloomPlan, width, height);
+            Prepare(fireworks, width, height);
+            Prepare(gloom, width, height);
+
+            var gloomFrame = (int)Math.Round((gloomPlan.Lightning[1] + 0.12) / dt);
+            var fireworksFrame = (int)Math.Round((FireworkShow.FinaleJackpotAt + 0.34) / dt);
+            for (var frame = 0; frame <= fireworksFrame; frame++)
+            {
+                var time = frame * dt;
+                fireworks.Advance(time, dt);
+                if (frame <= gloomFrame) gloom.Advance(time, dt);
+            }
+
+            var fireworksBitmap = UiTestHost.Render(fireworks, width, height);
+            var gloomBitmap = UiTestHost.Render(gloom, width, height);
+            Assert.True(HasVisiblePixels(fireworksBitmap));
+            Assert.True(HasVisiblePixels(gloomBitmap));
+            UiTestHost.SaveIfRequested(fireworksBitmap, "fireworks-depth-finale");
+            UiTestHost.SaveIfRequested(gloomBitmap, "gloom-depth-lightning");
+        });
     }
 
     [Fact]
@@ -173,6 +248,16 @@ public sealed class AnimationTests
         }
         stopwatch.Stop();
         return stopwatch.Elapsed.TotalMilliseconds / frames;
+    }
+
+    private static bool HasVisiblePixels(BitmapSource bitmap)
+    {
+        var stride = bitmap.PixelWidth * 4;
+        var pixels = new byte[stride * bitmap.PixelHeight];
+        bitmap.CopyPixels(pixels, stride, 0);
+        for (var i = 3; i < pixels.Length; i += 4)
+            if (pixels[i] != 0) return true;
+        return false;
     }
 
 }

@@ -7,6 +7,10 @@
         xmlns:weather="clr-namespace:ViennaAtomicClock.Weather"
         xmlns:clicker="clr-namespace:ViennaAtomicClock.AutoClicker"
         xmlns:viewer="clr-namespace:ViennaAtomicClock.GlbViewer"
+        xmlns:treeman="clr-namespace:ViennaAtomicClock.Treeman"
+        xmlns:fileflow="clr-namespace:ViennaAtomicClock.FileFlow"
+        xmlns:punch="clr-namespace:ViennaAtomicClock.PunchFactory"
+        xmlns:spacehelper="clr-namespace:ViennaAtomicClock.SpaceHelper"
         Title="Freedom" Width="1120" Height="720"
         Icon="app.ico"
         MinWidth="420" MinHeight="480"
@@ -38,6 +42,9 @@
             <local:MinecraftBackdrop x:Name="MinecraftLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:EagleBackdrop x:Name="EagleLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
             <local:MysticBackdrop x:Name="MysticLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
+            <local:ChristmasBackdrop x:Name="ChristmasLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
+            <local:HalloweenBackdrop x:Name="HalloweenLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
+            <local:JungleBackdrop x:Name="JungleLayer" Grid.RowSpan="2" Visibility="Collapsed"/>
 
             <!-- Custom title bar -->
             <Grid x:Name="TitleBarGrid" Grid.Row="0" Margin="24,0,16,0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -69,7 +76,7 @@
                                 <TextBlock Text="{DynamicResource L.apps}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,10"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
                                     <Button x:Name="ClockTileButton" Grid.Row="0" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ClockTileButton_Click">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◷" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Freedom" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.clock.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
@@ -93,6 +100,18 @@
                                     </Button>
                                     <Button x:Name="ViewerTileButton" Grid.Row="6" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ViewerTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.viewer}">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="⬡" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.viewer}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.viewer.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="TreemanTileButton" Grid.Row="8" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="TreemanTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.treeman}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="🪓" FontSize="25" FontFamily="Segoe UI Emoji" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.treeman}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.treeman.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="FileFlowTileButton" Grid.Row="8" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="FileFlowTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.fileflow}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="🔄" FontSize="25" FontFamily="Segoe UI Emoji" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.fileflow}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.fileflow.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="SpaceHelperTileButton" Grid.Row="10" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="SpaceHelperTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.spacehelper}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="💾" FontSize="25" FontFamily="Segoe UI Emoji" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.spacehelper}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.spacehelper.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="PunchFactoryTileButton" Grid.Row="10" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="PunchFactoryTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.punchfactory}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="🥊" FontSize="25" FontFamily="Segoe UI Emoji" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.punchfactory}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.punchfactory.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                 </Grid>
                             </StackPanel>
@@ -594,6 +613,10 @@
             <weather:WeatherPage x:Name="WeatherView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <clicker:AutoClickerPage x:Name="ClickerView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <viewer:GlbViewerPage x:Name="ViewerView" Grid.Row="1" Grid.RowSpan="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <treeman:TreemanPage x:Name="TreemanView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <fileflow:FileFlowPage x:Name="FileFlowView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <punch:PunchFactoryPage x:Name="PunchFactoryView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <spacehelper:SpaceHelperPage x:Name="SpaceHelperView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
 
             <!-- In-app notifications (weather warnings, rain starting). -->
             <Border x:Name="ToastHost" Grid.Row="1" Panel.ZIndex="300" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,34,34" MaxWidth="380"

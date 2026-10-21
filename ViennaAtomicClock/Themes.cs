@@ -18,6 +18,9 @@ internal static class Themes
     public const string Standard = "standard";
     public const string Eagle = "eagle";
     public const string Mystic = "mystic";
+    public const string Christmas = "christmas";
+    public const string Halloween = "halloween";
+    public const string Jungle = "jungle";
 
     public static readonly (string Id, string Label, string Glyph, string Hint)[] All =
     {
@@ -29,7 +32,10 @@ internal static class Themes
         (Tetris, "Tetris", "▦", "Fallende Steine, Arcade-Look"),
         (America, "America", "★", "Stars and Stripes, wehende Fahne"),
         (Minecraft, "Minecraft", "⛏", "Blöcke, Wolken, Pixel-Look"),
-        (Mystic, "Mystisch", "🌸", "Kirschblüten, Nebel, Mondlicht")
+        (Mystic, "Mystisch", "🌸", "Kirschblüten, Nebel, Mondlicht"),
+        (Christmas, "Weihnachten", "🎄", "Schnee, Tannengrün, Lichterglanz"),
+        (Halloween, "Halloween", "🎃", "Mondlicht, Nebel, Fledermäuse"),
+        (Jungle, "Jungle", "🌿", "Blätter, Lianen, Glühwürmchen")
     };
 
     public static string Normalize(string? id) => All.Any(t => t.Id == id) ? id! : War;
@@ -76,6 +82,9 @@ internal static class Themes
             Eagle => ("Segoe UI Variable Text, Segoe UI", "Segoe UI Variable Display, Segoe UI", "Segoe UI Variable Display Semibold, Segoe UI Semibold", 16.0),
             // Brush-like serif titles in the spirit of Japanese Mincho type.
             Mystic => ("Yu Gothic UI, Segoe UI Variable Text, Segoe UI", "Yu Mincho, Georgia, Segoe UI", "Yu Mincho Demibold, Yu Mincho, Georgia", 14.0),
+            Christmas => ("Segoe UI Variable Text, Segoe UI", "Georgia, Segoe UI Variable Display, Segoe UI", "Georgia Bold, Georgia, Segoe UI Semibold", 18.0),
+            Halloween => ("Segoe UI Variable Text, Segoe UI", "Georgia, Segoe UI Variable Display, Segoe UI", "Copperplate Gothic Bold, Georgia, Segoe UI Semibold", 15.0),
+            Jungle => ("Segoe UI Variable Text, Segoe UI", "Trebuchet MS, Segoe UI Variable Display, Segoe UI", "Trebuchet MS Bold, Bahnschrift SemiBold, Segoe UI Semibold", 20.0),
             _ => ("Consolas, Courier New", "Consolas, Courier New", "Stencil, Impact, Arial Black", 10.0)
         };
         resources["UiFont"] = new FontFamily(ui);
@@ -87,13 +96,15 @@ internal static class Themes
     /// <summary>Corner radius of the whole window for a theme.</summary>
     public static double WindowRadius(string theme) => theme switch
     {
-        Hacker => 14, Anime => 28, Tetris => 14, America => 18, Minecraft => 12, Standard => 20, Eagle => 22, Mystic => 20, _ => 16
+        Hacker => 14, Anime => 28, Tetris => 14, America => 18, Minecraft => 12, Standard => 20, Eagle => 22, Mystic => 20,
+        Christmas => 22, Halloween => 18, Jungle => 24, _ => 16
     };
 
     /// <summary>How see-through the cards are, so animated backdrops can shine through.</summary>
     private static double SurfaceOpacity(string theme) => theme switch
     {
-        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, Eagle => 0.86, Mystic => 0.84, _ => 1
+        Hacker => 0.85, Anime => 0.88, Tetris => 0.86, America => 0.88, Minecraft => 0.93, Eagle => 0.86, Mystic => 0.84,
+        Christmas => 0.86, Halloween => 0.84, Jungle => 0.84, _ => 1
     };
 
     /// <summary>Dark palette tinted with the picked colour; the colour itself becomes the accent.</summary>
@@ -209,6 +220,36 @@ internal static class Themes
         {
             "#F4ECF2", "#D9FFFAFD", "#E0FBF1F6", "#E8D2DF", "#2A1B2E", "#6A4F6E", "#9C86A0", "#F6E2EC", "#EFDCE8",
             "#D9487E", "#FFFFFF", "#FADCE8", "#2F9C7A", "#D6F1E7", "#C77A1E"
+        },
+        (Christmas, true) => new[]
+        {
+            "#07150F", "#DB12281D", "#E3193425", "#3E7052", "#FFF6E7", "#D7C6B6", "#9A8C81", "#244633", "#1E3C2B",
+            "#E43D52", "#FFFFFF", "#B33E1721", "#64D98A", "#163D28", "#F5C451"
+        },
+        (Christmas, false) => new[]
+        {
+            "#EAF3EC", "#E8FFFCF8", "#EAF6EF", "#B8D2C1", "#173324", "#486653", "#758C7D", "#DDEFE3", "#CEE5D6",
+            "#C92F45", "#FFFFFF", "#F8DDE2", "#168447", "#D7EFE0", "#B67B08"
+        },
+        (Halloween, true) => new[]
+        {
+            "#100A18", "#D91D1228", "#E42A1838", "#5A366D", "#FFF0D8", "#D1B5D8", "#917A9D", "#382047", "#321C41",
+            "#FF7A1A", "#21100A", "#B34A2418", "#9BE34D", "#253A18", "#FFC45C"
+        },
+        (Halloween, false) => new[]
+        {
+            "#F4E9D8", "#E8FFF9EF", "#EFE9D9F2", "#C9ACCF", "#302037", "#6B4E70", "#947E98", "#EADCF0", "#DDCDE4",
+            "#D85B12", "#FFFFFF", "#F7D8C5", "#528B24", "#DDECCD", "#AD6700"
+        },
+        (Jungle, true) => new[]
+        {
+            "#06140F", "#D80D281C", "#E4143525", "#286346", "#ECFFF5", "#B6D8C6", "#789988", "#1B4831", "#173D2B",
+            "#35D07F", "#062116", "#B31A5335", "#4BE08D", "#153E2A", "#F1B846"
+        },
+        (Jungle, false) => new[]
+        {
+            "#E8F5EC", "#E8FBFFF8", "#EBEDF8F0", "#A8CEB4", "#163624", "#456B53", "#78917F", "#D9EDDE", "#CBE5D3",
+            "#168A4D", "#FFFFFF", "#CFEAD8", "#168A4D", "#D0ECD9", "#B97908"
         },
         (_, true) => new[]
         {

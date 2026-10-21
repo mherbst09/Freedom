@@ -4,6 +4,7 @@ obj/
 .vs/
 *.user
 TestResults/
+.artifacts/
 
 # Fertige EXE: kommt als GitHub-Release, nicht ins Repo
 Release/

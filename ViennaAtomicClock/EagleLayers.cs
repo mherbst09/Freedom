@@ -163,6 +163,36 @@ internal static class ThemePreview
                     dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(200, 255, 170, 200)), null, new Point(x, y), r, r);
                 dc.DrawRectangle(new LinearGradientBrush(Color.FromArgb(0, 255, 255, 255), Color.FromArgb(110, 255, 255, 255), 90), null, new Rect(0, 60, 160, 30));
                 break;
+            case Themes.Christmas:
+                var garland = new Pen(new SolidColorBrush(Color.FromArgb(190, 32, 142, 76)), 4);
+                dc.DrawLine(garland, new Point(0, 8), new Point(160, 17));
+                Color[] lights = { Color.FromRgb(228, 61, 82), Color.FromRgb(245, 196, 81), Color.FromRgb(102, 202, 255) };
+                for (var i = 0; i < 9; i++)
+                    dc.DrawEllipse(new SolidColorBrush(lights[i % lights.Length]), null, new Point(10 + i * 18, 10 + i * 0.9), 2.8, 3.5);
+                for (var i = 0; i < 12; i++)
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(170, 255, 255, 255)), null, new Point(random.Next(2, 158), random.Next(18, 88)), 1.2, 1.2);
+                break;
+            case Themes.Halloween:
+                dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(215, 255, 126, 28)), null, new Point(137, 15), 13, 13);
+                dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(235, 35, 20, 48)), null, new Point(142, 12), 11, 11);
+                var batBrush = new SolidColorBrush(Color.FromArgb(190, 92, 48, 112));
+                foreach (var (x, y) in new[] { (20.0, 12.0), (80.0, 8.0), (118.0, 38.0), (150.0, 72.0) })
+                {
+                    dc.DrawEllipse(batBrush, null, new Point(x - 3, y), 4, 1.5);
+                    dc.DrawEllipse(batBrush, null, new Point(x + 3, y), 4, 1.5);
+                }
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(70, 220, 190, 225)), null, new Rect(0, 72, 160, 18));
+                break;
+            case Themes.Jungle:
+                var vine = new Pen(new SolidColorBrush(Color.FromArgb(190, 35, 176, 94)), 2.5);
+                foreach (var x in new[] { 12.0, 52.0, 104.0, 148.0 })
+                {
+                    dc.DrawLine(vine, new Point(x, 0), new Point(x - 5, 34));
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(190, 47, 194, 105)), null, new Point(x - 8, 25), 8, 3);
+                }
+                for (var i = 0; i < 10; i++)
+                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(210, 245, 190, 55)), null, new Point(random.Next(4, 156), random.Next(8, 88)), 1.7, 1.7);
+                break;
             case Themes.War:
                 for (var i = 0; i < 40; i++)
                     dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(90, 0, 0, 0)), null, new Rect(random.NextDouble() * 160, random.NextDouble() * 90, 1.5, 1.5));

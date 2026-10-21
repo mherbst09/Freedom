@@ -151,10 +151,14 @@ internal sealed class GloomCanvas : FrameworkElement
     private static readonly Geometry CrowTailGeometry = CreatePolygon(new Point(0.32, -0.03), new Point(0.82, -0.2), new Point(0.65, 0.02), new Point(0.86, 0.13), new Point(0.31, 0.14));
     private static readonly Geometry CrowBeakGeometry = CreatePolygon(new Point(-0.47, -0.11), new Point(-0.72, -0.04), new Point(-0.48, 0.015));
     private static readonly Geometry CandleFlameGeometry = CreateCandleFlameGeometry();
+    private static readonly Geometry SkullGeometry = CreateSkullGeometry();
+    private static readonly Geometry SkullNoseGeometry = CreatePolygon(new Point(0, 0.08), new Point(-0.13, 0.36), new Point(0.14, 0.36));
     private static readonly Brush VignetteBrush = CreateVignetteBrush();
     private static readonly Brush StoneBrush = CreateGradientBrush(Color.FromRgb(110, 112, 118), Color.FromRgb(60, 62, 68), 90);
     private static readonly Brush CandleBrush = CreateGradientBrush(Color.FromRgb(170, 162, 143), Color.FromRgb(239, 232, 209), 0);
     private static readonly Brush TitleBrush = CreateGradientBrush(Color.FromRgb(200, 204, 214), Color.FromRgb(90, 94, 104), 90);
+    private static readonly Brush GhostBrush = CreateGhostBrush();
+    private static readonly Brush FogBrush = CreateFogBrush();
 
     private readonly GloomPlan _plan;
     private readonly double _width, _height;
@@ -173,6 +177,7 @@ internal sealed class GloomCanvas : FrameworkElement
     private double _boltAt = -10, _lastWash = -10, _washAt = -10;
     private int _nextStrike;
     private double _time;
+    private int _depthDetail = 2;
 
     public GloomCanvas(GloomPlan plan, double width, double height)
     {
@@ -195,6 +200,7 @@ internal sealed class GloomCanvas : FrameworkElement
 
     public void ReduceLoad()
     {
+        if (_depthDetail > 0) _depthDetail--;
         var rainTarget = Math.Max(140, (int)(_rain.Count * 0.75));
         if (_rain.Count > rainTarget) _rain.RemoveRange(0, _rain.Count - rainTarget);
         if (_leaves.Count > 18) _leaves.RemoveRange(0, _leaves.Count - 18);
@@ -367,6 +373,9 @@ internal sealed class GloomCanvas : FrameworkElement
             DrawStormCloud(dc, x, cy, r, show);
         }
 
+        DrawPerspectiveCemetery(dc, show);
+        DrawSpectralSkull(dc, show);
+
         var sinceBolt = _time - _boltAt;
         if (_bolt is not null && sinceBolt is >= 0 and < 0.35)
         {
@@ -400,6 +409,8 @@ internal sealed class GloomCanvas : FrameworkElement
             dc.DrawLine(splashPen, new Point(s.X - p * s.Spread * 0.35, s.Y - p * 3), new Point(s.X - p * s.Spread * 0.65, s.Y - Math.Sin(p * Math.PI) * 8));
             dc.DrawLine(splashPen, new Point(s.X + p * s.Spread * 0.25, s.Y - p * 2), new Point(s.X + p * s.Spread * 0.55, s.Y - Math.Sin(p * Math.PI) * 6));
         }
+
+        DrawVolumetricFog(dc, show);
 
         DrawGrave(dc, show);
 
@@ -435,6 +446,142 @@ internal sealed class GloomCanvas : FrameworkElement
         dc.DrawEllipse(dark, null, new Point(x, y + r * 0.18), r * 1.12, r * 0.42);
         dc.DrawEllipse(Fill(Color.FromRgb(82, 85, 94), 0.25 * show), null,
             new Point(x - r * 0.18, y - r * 0.29), r * 0.43, r * 0.15);
+    }
+
+    private void DrawPerspectiveCemetery(DrawingContext dc, double show)
+    {
+        if (_depthDetail <= 0) return;
+        var horizonY = _focus.Top + _focus.Height * 0.44;
+        var vanishingX = _focus.X + _focus.Width * 0.5 + Math.Sin(_time * 0.34) * _focus.Width * 0.018;
+        var vanishing = new Point(vanishingX, horizonY);
+        var groundPen = new Pen(Fill(Color.FromRgb(86, 94, 108), 0.15 * show), _depthDetail > 1 ? 1.2 : 0.8);
+        groundPen.Freeze();
+
+        var rayCount = _depthDetail > 1 ? 10 : 6;
+        for (var i = 0; i <= rayCount; i++)
+        {
+            var bottomX = _focus.Left + _focus.Width * i / rayCount;
+            dc.DrawLine(groundPen, vanishing, new Point(bottomX, Ground));
+        }
+        for (var i = 1; i <= (_depthDetail > 1 ? 7 : 4); i++)
+        {
+            var p = i / 7.0;
+            p *= p;
+            var y = horizonY + (Ground - horizonY) * p;
+            dc.DrawLine(groundPen, new Point(_focus.Left, y), new Point(_focus.Right, y));
+        }
+
+        var count = _depthDetail > 1 ? 6 : 3;
+        var min = Math.Min(_focus.Width, _focus.Height);
+        for (var i = 0; i < count; i++)
+        {
+            var depth = (i + 1.0) / (count + 1.0);
+            var p = Math.Pow(depth, 1.45);
+            var y = horizonY + (Ground - horizonY) * p;
+            var w = min * (0.025 + p * 0.07);
+            var h = w * (1.18 + (i % 3) * 0.13);
+            var spread = _focus.Width * (0.08 + p * 0.43);
+            DrawDepthGravestone(dc, vanishingX - spread, y, w, h, -1, show * (0.34 + p * 0.5));
+            DrawDepthGravestone(dc, vanishingX + spread, y, w * 0.92, h * 1.08, 1, show * (0.34 + p * 0.5));
+        }
+    }
+
+    private void DrawDepthGravestone(DrawingContext dc, double x, double ground, double width, double height, int side, double alpha)
+    {
+        var left = x - width / 2;
+        var right = x + width / 2;
+        var top = ground - height;
+        var shoulder = top + width * 0.26;
+        var extrusion = side * width * 0.18;
+
+        var front = CreatePolygon(
+            new Point(left, ground), new Point(left, shoulder), new Point(x - width * 0.3, top + width * 0.05),
+            new Point(x, top - width * 0.08), new Point(x + width * 0.3, top + width * 0.05),
+            new Point(right, shoulder), new Point(right, ground));
+        var sideFace = CreatePolygon(
+            new Point(side > 0 ? right : left, ground), new Point(side > 0 ? right : left, shoulder),
+            new Point(side > 0 ? x + width * 0.3 : x - width * 0.3, top + width * 0.05),
+            new Point(side > 0 ? x + width * 0.3 + extrusion : x - width * 0.3 + extrusion, top + width * 0.12),
+            new Point(side > 0 ? right + extrusion : left + extrusion, shoulder + width * 0.08),
+            new Point(side > 0 ? right + extrusion : left + extrusion, ground));
+
+        var shadow = new Point(x - side * width * 0.08, ground + width * 0.04);
+        dc.DrawEllipse(Fill(Colors.Black, alpha * 0.55), null, shadow, width * 0.72, width * 0.11);
+        dc.DrawGeometry(Fill(Color.FromRgb(34, 38, 45), alpha), null, sideFace);
+        dc.DrawGeometry(Fill(Color.FromRgb(72, 76, 84), alpha),
+            new Pen(Fill(Color.FromRgb(126, 132, 144), alpha * 0.45), Math.Max(0.6, width * 0.018)), front);
+        dc.DrawLine(new Pen(Fill(Color.FromRgb(22, 25, 30), alpha * 0.8), Math.Max(0.7, width * 0.022)),
+            new Point(x, top + height * 0.32), new Point(x, top + height * 0.65));
+        dc.DrawLine(new Pen(Fill(Color.FromRgb(22, 25, 30), alpha * 0.8), Math.Max(0.7, width * 0.022)),
+            new Point(x - width * 0.18, top + height * 0.43), new Point(x + width * 0.18, top + height * 0.43));
+    }
+
+    private void DrawSpectralSkull(DrawingContext dc, double show)
+    {
+        if (_depthDetail <= 0) return;
+        var appear = Math.Clamp((_time - 1.4) / 1.6, 0, 1) * Math.Clamp((14.2 - _time) / 1.5, 0, 1);
+        var lightning = Math.Clamp(1 - (_time - _boltAt) / 0.6, 0, 1);
+        var alpha = show * appear * (0.18 + lightning * 0.24 + 0.04 * (1 + Math.Sin(_time * 1.7)));
+        if (alpha <= 0.01) return;
+
+        var min = Math.Min(_focus.Width, _focus.Height);
+        var size = min * (0.14 + 0.012 * Math.Sin(_time * 0.72));
+        var yaw = Math.Sin(_time * 0.58) * 0.22;
+        var center = new Point(_focus.X + _focus.Width * 0.5 + yaw * min * 0.12,
+            _focus.Y + _focus.Height * 0.36 + Math.Sin(_time * 0.43) * min * 0.018);
+        var rotation = Math.Sin(_time * 0.31) * 3.5;
+        var scaleX = 0.84 + Math.Cos(_time * 0.58) * 0.12;
+
+        if (_depthDetail > 1)
+        {
+            for (var layer = 5; layer >= 1; layer--)
+            {
+                dc.PushTransform(new TranslateTransform(center.X - yaw * layer * 7, center.Y + layer * 2.3));
+                dc.PushTransform(new RotateTransform(rotation));
+                dc.PushTransform(new ScaleTransform(size * scaleX, size));
+                dc.DrawGeometry(Fill(Color.FromRgb(14, 34, 42), alpha * (0.12 + layer * 0.025)), null, SkullGeometry);
+                dc.Pop();
+                dc.Pop();
+                dc.Pop();
+            }
+        }
+
+        dc.PushOpacity(alpha);
+        dc.PushTransform(new TranslateTransform(center.X, center.Y));
+        dc.PushTransform(new RotateTransform(rotation));
+        dc.PushTransform(new ScaleTransform(size * scaleX, size));
+        dc.DrawEllipse(null, new Pen(Fill(Color.FromRgb(102, 224, 213), 0.5), 0.018), new Point(0, -0.08), 1.03, 1.12);
+        dc.DrawGeometry(GhostBrush, new Pen(Fill(Color.FromRgb(184, 238, 229), 0.72), 0.025), SkullGeometry);
+        dc.DrawEllipse(Fill(Color.FromRgb(4, 13, 18), 0.95), null, new Point(-0.34, -0.18), 0.24, 0.31);
+        dc.DrawEllipse(Fill(Color.FromRgb(4, 13, 18), 0.95), null, new Point(0.34, -0.18), 0.24, 0.31);
+        var eyeGlow = 0.45 + lightning * 0.55;
+        dc.DrawEllipse(Fill(Color.FromRgb(92, 240, 217), eyeGlow), null, new Point(-0.34 + yaw * 0.1, -0.14), 0.055, 0.08);
+        dc.DrawEllipse(Fill(Color.FromRgb(92, 240, 217), eyeGlow), null, new Point(0.34 + yaw * 0.1, -0.14), 0.055, 0.08);
+        dc.DrawGeometry(Fill(Color.FromRgb(8, 22, 27), 0.9), null, SkullNoseGeometry);
+        var teethPen = new Pen(Fill(Color.FromRgb(34, 73, 75), 0.8), 0.018);
+        teethPen.Freeze();
+        dc.DrawLine(teethPen, new Point(-0.42, 0.55), new Point(0.42, 0.55));
+        for (var i = -3; i <= 3; i++)
+            dc.DrawLine(teethPen, new Point(i * 0.105, 0.46), new Point(i * 0.09, 0.72));
+        dc.Pop();
+        dc.Pop();
+        dc.Pop();
+        dc.Pop();
+    }
+
+    private void DrawVolumetricFog(DrawingContext dc, double show)
+    {
+        if (_depthDetail <= 0) return;
+        var layers = _depthDetail > 1 ? 5 : 3;
+        dc.PushOpacity(show * 0.34);
+        for (var i = 0; i < layers; i++)
+        {
+            var span = _focus.Width * 1.5;
+            var x = _focus.Left - _focus.Width * 0.25 + ((_time * (13 + i * 3) + i * _focus.Width * 0.31) % span);
+            var y = Ground - _focus.Height * (0.03 + i * 0.025) + Math.Sin(_time * 0.45 + i) * 9;
+            dc.DrawEllipse(FogBrush, null, new Point(x, y), _focus.Width * (0.22 + i * 0.018), _focus.Height * 0.075);
+        }
+        dc.Pop();
     }
 
     private void DrawGrave(DrawingContext dc, double show)
@@ -600,6 +747,26 @@ internal sealed class GloomCanvas : FrameworkElement
         return geometry;
     }
 
+    private static Geometry CreateSkullGeometry()
+    {
+        var geometry = new StreamGeometry();
+        using (var c = geometry.Open())
+        {
+            c.BeginFigure(new Point(0, -1.04), true, true);
+            c.BezierTo(new Point(-0.62, -1.04), new Point(-0.9, -0.67), new Point(-0.86, -0.12), true, true);
+            c.BezierTo(new Point(-0.84, 0.2), new Point(-0.67, 0.34), new Point(-0.55, 0.42), true, true);
+            c.LineTo(new Point(-0.48, 0.72), true, false);
+            c.LineTo(new Point(-0.29, 0.88), true, false);
+            c.LineTo(new Point(0.29, 0.88), true, false);
+            c.LineTo(new Point(0.48, 0.72), true, false);
+            c.LineTo(new Point(0.55, 0.42), true, false);
+            c.BezierTo(new Point(0.67, 0.34), new Point(0.84, 0.2), new Point(0.86, -0.12), true, true);
+            c.BezierTo(new Point(0.9, -0.67), new Point(0.62, -1.04), new Point(0, -1.04), true, true);
+        }
+        geometry.Freeze();
+        return geometry;
+    }
+
     private static Geometry CreatePolygon(params Point[] points)
     {
         var geometry = new StreamGeometry();
@@ -651,6 +818,36 @@ internal sealed class GloomCanvas : FrameworkElement
             RadiusX = 0.7,
             RadiusY = 0.7
         };
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Brush CreateGhostBrush()
+    {
+        var brush = new RadialGradientBrush
+        {
+            Center = new Point(0.38, 0.27),
+            GradientOrigin = new Point(0.3, 0.18),
+            RadiusX = 0.78,
+            RadiusY = 0.9
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(220, 218, 250, 239), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(180, 100, 185, 174), 0.5));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(95, 22, 69, 76), 1));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static Brush CreateFogBrush()
+    {
+        var brush = new RadialGradientBrush
+        {
+            RadiusX = 0.5,
+            RadiusY = 0.5
+        };
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(105, 166, 184, 190), 0));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(54, 108, 128, 138), 0.55));
+        brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 62, 76, 84), 1));
         brush.Freeze();
         return brush;
     }
