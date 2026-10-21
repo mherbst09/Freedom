@@ -68,6 +68,9 @@ internal static partial class Strings
 
         // App switcher and title bar
         ["apps"] = new[] { "APPS", "APPS", "APPS", "APPS", "ПРИЛОЖЕНИЯ", "应用", "アプリ" },
+        ["apps.daily"] = new[] { "Alltag", "Everyday", "Día a día", "Dia a dia", "Повседневное", "日常", "日常" },
+        ["apps.tools"] = new[] { "Werkzeuge", "Tools", "Herramientas", "Ferramentas", "Инструменты", "工具", "ツール" },
+        ["apps.games"] = new[] { "Spiele", "Games", "Juegos", "Jogos", "Игры", "游戏", "ゲーム" },
         ["tile.clock.hint"] = new[] { "Atomzeit · Stunden", "Atomic time · lessons", "Hora atómica · clases", "Hora atómica · aulas", "Точное время · уроки", "原子时间 · 课表", "原子時計 · 授業" },
         ["tile.coffee"] = new[] { "Koffein", "Caffeine", "Cafeína", "Cafeína", "Кофеин", "咖啡因", "カフェイン" },
         ["tile.coffee.hint"] = new[] { "Tracker · mg", "Tracker · mg", "Registro · mg", "Registo · mg", "Трекер · мг", "记录 · 毫克", "記録 · mg" },
