@@ -97,6 +97,7 @@ public partial class MainWindow : Window
         FileFlowView.Changed += () => { if (_page == "fileflow") UpdateHeaderForCurrentPage(); };
         SpaceHelperView.Changed += () => { if (_page == "spacehelper") UpdateHeaderForCurrentPage(); };
         PunchFactoryView.Changed += () => { if (_page == "punchfactory") UpdateHeaderForCurrentPage(); };
+        ChessView.Changed += () => { if (_page == "chess") UpdateHeaderForCurrentPage(); };
 
         _viennaZone = FindViennaTimeZone();
         _displayZone = FindDisplayZone(_settings.TimeZoneId) ?? _viennaZone;
@@ -139,6 +140,7 @@ public partial class MainWindow : Window
             FileFlowView.Shutdown(); // deletes every temporary copy
             SpaceHelperView.Shutdown();
             PunchFactoryView.Shutdown(); // saves the game
+            ChessView.Shutdown(); // saves the running game
             _syncCancellation?.Cancel();
             _classCatalogCancellation?.Cancel();
             _classSelectionCancellation?.Cancel();
@@ -1110,6 +1112,16 @@ public partial class MainWindow : Window
                 _ => Loc.T("title.notes.sub")
             };
         }
+        else if (_page == "chess")
+        {
+            AppTitleText.Text = theme switch { Themes.Hacker => "CHESS.EXE_", Themes.Anime => Loc.T("title.chess") + " ♡", _ => Loc.T("title.chess") };
+            AppSubtitleText.Text = theme switch
+            {
+                Themes.Hacker => "root@freedom:~$ chess --play",
+                Themes.Anime => "nya~ ♡ " + Loc.T("title.chess.sub"),
+                _ => Loc.T("title.chess.sub")
+            };
+        }
         else if (_page == "punchfactory")
         {
             AppTitleText.Text = theme switch { Themes.Hacker => "PUNCH.EXE_", Themes.Anime => Loc.T("title.punchfactory") + " ♡", _ => Loc.T("title.punchfactory") };
@@ -1303,7 +1315,7 @@ public partial class MainWindow : Window
         _lastRenderedClockSecond = long.MinValue;
         _scheduleKey = "";
         _lastSchoolSecond = -1;
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), "chess" => Loc.T("window.chess"), _ => "Freedom" };
     }
 
     private void SettingsPanel_SizeChanged(object sender, SizeChangedEventArgs e) =>
@@ -1547,6 +1559,12 @@ public partial class MainWindow : Window
 
     private string _pageBeforeTreeman = "clock";
 
+    private void ChessTileButton_Click(object sender, RoutedEventArgs e)
+    {
+        AppSwitcherPopup.IsOpen = false;
+        SwitchPage("chess");
+    }
+
     private void PunchFactoryTileButton_Click(object sender, RoutedEventArgs e)
     {
         AppSwitcherPopup.IsOpen = false;
@@ -1589,7 +1607,7 @@ public partial class MainWindow : Window
         if (page == "viewer" && previous != "viewer") _pageBeforeViewer = previous;
         if (previous == "viewer" && page != "viewer" && _focusMode) ToggleFocusMode();
         if (page == "treeman" && previous != "treeman") _pageBeforeTreeman = previous;
-        _page = page is "caffeine" or "todo" or "notes" or "tutor" or "weather" or "clicker" or "viewer" or "treeman" or "fileflow" or "spacehelper" or "punchfactory" ? page : "clock";
+        _page = page is "caffeine" or "todo" or "notes" or "tutor" or "weather" or "clicker" or "viewer" or "treeman" or "fileflow" or "spacehelper" or "punchfactory" or "chess" ? page : "clock";
         ClockPage.Visibility = _page == "clock" ? Visibility.Visible : Visibility.Collapsed;
         CaffeineScroll.Visibility = _page == "caffeine" ? Visibility.Visible : Visibility.Collapsed;
         TodoView.Visibility = _page == "todo" ? Visibility.Visible : Visibility.Collapsed;
@@ -1602,12 +1620,13 @@ public partial class MainWindow : Window
         FileFlowView.Visibility = _page == "fileflow" ? Visibility.Visible : Visibility.Collapsed;
         SpaceHelperView.Visibility = _page == "spacehelper" ? Visibility.Visible : Visibility.Collapsed;
         PunchFactoryView.Visibility = _page == "punchfactory" ? Visibility.Visible : Visibility.Collapsed;
+        ChessView.Visibility = _page == "chess" ? Visibility.Visible : Visibility.Collapsed;
         UpdateViewerFullscreen();
         UpdateTitleTexts();
-        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), _ => "Freedom" };
+        Title = _page switch { "caffeine" => Loc.T("window.coffee"), "todo" => Loc.T("window.todo"), "notes" => Loc.T("window.notes"), "tutor" => "AI – Eagle 1.1", "weather" => Loc.T("window.weather"), "clicker" => Loc.T("window.clicker"), "viewer" => Loc.T("window.viewer"), "treeman" => Loc.T("window.treeman"), "fileflow" => Loc.T("window.fileflow"), "spacehelper" => Loc.T("window.spacehelper"), "punchfactory" => Loc.T("window.punchfactory"), "chess" => Loc.T("window.chess"), _ => "Freedom" };
         _settings.ActivePage = _page;
         if (previous != _page || !IsLoaded)
-            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, "weather" => WeatherView, "clicker" => ClickerView, "viewer" => ViewerView, "treeman" => TreemanView, "fileflow" => FileFlowView, "spacehelper" => SpaceHelperView, "punchfactory" => PunchFactoryView, _ => (UIElement)ClockPage });
+            Motion.PageIn(_page switch { "caffeine" => CaffeineScroll, "todo" => TodoView, "notes" => NotesView, "tutor" => TutorView, "weather" => WeatherView, "clicker" => ClickerView, "viewer" => ViewerView, "treeman" => TreemanView, "fileflow" => FileFlowView, "spacehelper" => SpaceHelperView, "punchfactory" => PunchFactoryView, "chess" => ChessView, _ => (UIElement)ClockPage });
         UpdateNavigationVisuals();
         UpdateHeaderForCurrentPage();
         if (_showingCaffeine) RefreshCaffeineSummary();
@@ -1628,6 +1647,7 @@ public partial class MainWindow : Window
         FileFlowTileButton.Background = (Brush)FindResource(_page == "fileflow" ? "AccentSoft" : "SurfaceAlt");
         SpaceHelperTileButton.Background = (Brush)FindResource(_page == "spacehelper" ? "AccentSoft" : "SurfaceAlt");
         PunchFactoryTileButton.Background = (Brush)FindResource(_page == "punchfactory" ? "AccentSoft" : "SurfaceAlt");
+        ChessTileButton.Background = (Brush)FindResource(_page == "chess" ? "AccentSoft" : "SurfaceAlt");
     }
 
     private void UpdateHeaderForCurrentPage()
@@ -1657,6 +1677,11 @@ public partial class MainWindow : Window
         else if (_page == "weather")
         {
             HeaderStatusText.Text = WeatherView.StatusLine;
+            SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
+        }
+        else if (_page == "chess")
+        {
+            HeaderStatusText.Text = ChessView.StatusLine;
             SetStatusColor((Brush)FindResource("AccentBrush"), (Brush)FindResource("AccentSoft"));
         }
         else if (_page == "punchfactory")

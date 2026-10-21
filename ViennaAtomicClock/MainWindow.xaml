@@ -10,6 +10,7 @@
         xmlns:treeman="clr-namespace:ViennaAtomicClock.Treeman"
         xmlns:fileflow="clr-namespace:ViennaAtomicClock.FileFlow"
         xmlns:punch="clr-namespace:ViennaAtomicClock.PunchFactory"
+        xmlns:chess="clr-namespace:ViennaAtomicClock.Chess"
         xmlns:spacehelper="clr-namespace:ViennaAtomicClock.SpaceHelper"
         Title="Freedom" Width="1120" Height="720"
         Icon="app.ico"
@@ -76,7 +77,7 @@
                                 <TextBlock Text="{DynamicResource L.apps}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,2,0,10"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/><RowDefinition Height="10"/><RowDefinition/></Grid.RowDefinitions>
                                     <Button x:Name="ClockTileButton" Grid.Row="0" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ClockTileButton_Click">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="◷" FontSize="25" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="Freedom" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.clock.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
@@ -112,6 +113,9 @@
                                     </Button>
                                     <Button x:Name="PunchFactoryTileButton" Grid.Row="10" Grid.Column="2" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="PunchFactoryTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.punchfactory}">
                                         <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="🥊" FontSize="25" FontFamily="Segoe UI Emoji" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.punchfactory}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.punchfactory.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
+                                    </Button>
+                                    <Button x:Name="ChessTileButton" Grid.Row="12" Grid.Column="0" Background="{DynamicResource SurfaceAlt}" BorderThickness="0" Cursor="Hand" Click="ChessTileButton_Click" AutomationProperties.Name="{DynamicResource L.tile.chess}">
+                                        <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource CardRadius}" Padding="14"><StackPanel><TextBlock Text="♞" FontSize="25" FontFamily="Segoe UI Symbol" Foreground="{DynamicResource AccentBrush}"/><TextBlock Text="{DynamicResource L.tile.chess}" FontWeight="SemiBold" Margin="0,7,0,0"/><TextBlock Text="{DynamicResource L.tile.chess.hint}" FontSize="10" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"/></StackPanel></Border></ControlTemplate></Button.Template>
                                     </Button>
                                 </Grid>
                             </StackPanel>
@@ -616,6 +620,7 @@
             <treeman:TreemanPage x:Name="TreemanView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <fileflow:FileFlowPage x:Name="FileFlowView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <punch:PunchFactoryPage x:Name="PunchFactoryView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
+            <chess:ChessPage x:Name="ChessView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
             <spacehelper:SpaceHelperPage x:Name="SpaceHelperView" Grid.Row="1" Margin="24,4,24,24" Visibility="Collapsed"/>
 
             <!-- In-app notifications (weather warnings, rain starting). -->

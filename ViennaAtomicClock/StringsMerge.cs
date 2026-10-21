@@ -11,6 +11,7 @@ internal static partial class Strings
         foreach (var (key, texts) in Treeman.TreemanStrings.Table) Table[key] = texts;
         foreach (var (key, texts) in FileFlow.FileFlowStrings.Table) Table[key] = texts;
         foreach (var (key, texts) in PunchFactory.PunchFactoryStrings.Table) Table[key] = texts;
+        foreach (var (key, texts) in Chess.ChessStrings.Table) Table[key] = texts;
         foreach (var (key, texts) in SpaceHelper.SpaceHelperStrings.Table) Table[key] = texts;
     }
 }

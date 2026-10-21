@@ -57,6 +57,9 @@ public partial class App : Application
     /// <summary>Picked colour while the coloured mode is on, otherwise null.</summary>
     public static Color? CustomColor { get; private set; }
 
+    /// <summary>Raised after the theme or the light/dark mode changed.</summary>
+    public static event Action? ThemeChanged;
+
     public static void ApplyTheme(bool dark) => ApplyTheme(ThemeName, dark, null);
 
     public static void ApplyTheme(string theme, bool dark, Color? custom = null)
@@ -65,6 +68,7 @@ public partial class App : Application
         CustomColor = custom;
         ThemeName = Themes.Normalize(theme);
         Themes.Apply(Current.Resources, ThemeName, IsDark, custom);
+        ThemeChanged?.Invoke();
     }
 
     public static Color? ParseColor(string? hex)
